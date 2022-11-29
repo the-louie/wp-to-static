@@ -16,7 +16,7 @@ const minifyConf = {
     removeAttributeQuotes: true,
     removeComments: true,
     removeEmptyAttributes: true,
-    removeEmptyElements: true,
+    removeEmptyElements: false, // kills font-awesome
     removeOptionalTags: true,
     removeRedundantAttributes: true,
     removeScriptTypeAttributes: true,

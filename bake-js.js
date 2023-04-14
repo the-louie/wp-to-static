@@ -3,7 +3,8 @@ const https = require('https');
 const path = require('path');
 const minify = require('html-minifier').minify;
 
-const fileName = process.argv[2];
+const argFile = process.argv[2];
+const fileName = path.normalize(argFile);
 const dirName = path.dirname(fileName);
 
 const minifyConf = {
@@ -47,27 +48,49 @@ const download = (url) => new Promise((resolve, reject) => {
      });
 })
 
+
+const fixRootPath = (path) => {
+    let npath = path.replace(/^.*\/wp-content/, 'localhost:8000/wp-content').replace(/^.*\/wp-includes/, 'localhost:8000/wp-includes');
+    if (npath.indexOf('localhost:8000') === -1) {
+        npath = ('localhost:8000/' + npath).replace('//', '/');
+    }
+    return npath;
+}
+
+console.log(`Baking CSS for ${fileName}`);
+const cssImports = mainHtml.matchAll(/<link rel=["']stylesheet['"] .*? href=["']\/?(.*?)['"].*?\/>/g)
+Array.from(cssImports).forEach(cssImport => {
+    if (cssImport[1].indexOf('http') !== -1) {
+        // webfile - skip for now
+    } else {
+        const cssFileName = fixRootPath(cssImport[1].replace(/%3F.*/, '')).replace(/\?.*/, '');
+	    const css = fs.readFileSync(cssFileName).toString()
+        mainHtml = mainHtml.replace(cssImport[0], `<style>${css}</style>`);
+        console.log(` * ${cssFileName}`);
+    }
+})
+
 const jsImports = mainHtml.matchAll(/<script src=["']\/?(.*?)['"].*?<\/script>/g)
 
-console.log(`Baking-JS for ${fileName}`);
+console.log(`Baking-JS for ${fileName} (${dirName})`);
 
 Array.from(jsImports).forEach(jsImport => {
 
     let jsFile = jsImport[1].replace('%3F', '?')
 
-    // superfugly workaround for a single file.
-    if (jsFile.indexOf('wp-content/themes/Eisai/assets/js/html5.min.js') !== -1) {
-        jsFile = `./localhost:8000/${jsFile.replace(/\?ver=.*/, '')}`;
-    } else {
-        jsFile = `${dirName}/${jsFile}`;
-    }
-
     if (jsFile.indexOf('http') !== -1) {
         // webfile - skip for now
     } else {
         // localfile
+        if (jsFile.indexOf('?') !== -1) {
+            jsFile = `./localhost:8000/${jsFile.replace(/\?.*/, '')}`;
+        } else {
+            jsFile = `${dirName}/${jsFile}`;
+        }
+	jsFile = jsFile.replace(/localhost:8000\/.*\/wp-content/, 'localhost:8000/wp-content');
         try {
-            const js = fs.readFileSync(jsFile).toString();
+	    const jsFileName = path.normalize(jsFile);
+            const js = fs.readFileSync(jsFileName).toString();
             mainHtml = mainHtml.replace(jsImport[0], `<script>${js}</script>`);
             console.log(` * ${jsFile}`);
         } catch (err) {
@@ -76,5 +99,7 @@ Array.from(jsImports).forEach(jsImport => {
     }
 });
 
+
 const miniHtml = minify(mainHtml, minifyConf);
 fs.writeFileSync(fileName, miniHtml);
+

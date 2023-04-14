@@ -19,18 +19,19 @@ cd "$BASEDIR" || exit
 # download site
 ##########################
 
-wget -X wp-json -X author -X comments --reject-regex="/feed/" --convert-links -mEpnp "http://localhost:8000/"
-wget -X wp-json --convert-links -mEpnp "http://localhost:8000/lost/"
+wget  --no-cache --no-cookies -X wp-json -X author -X comments --reject-regex="/feed/" --convert-links -mEpnp "http://localhost:8000/"
+wget  --no-cache --no-cookies -O "./localhost:8000/index.html"  "http://localhost:8000/" 
+wget  --no-cache --no-cookies -X wp-json --convert-links -mEpnp "http://localhost:8000/lost/"
 mkdir -p localhost\:8000/wp-includes/js
-wget -O localhost\:8000/wp-includes/js/wp-emoji-release.min.js "http://localhost:8000/wp-includes/js/wp-emoji-release.min.js?ver=6.1"
-wget -O localhost\:8000/wp-content/themes/Eisai/assets/js/html5.min.js "http://localhost:8000/wp-content/themes/Eisai/assets/js/html5.min.js"
+wget  --no-cache --no-cookies -O localhost\:8000/wp-includes/js/wp-emoji-release.min.js "http://localhost:8000/wp-includes/js/wp-emoji-release.min.js?ver=6.1"
+wget  --no-cache --no-cookies -O localhost\:8000/wp-content/themes/Eisai/assets/js/html5.min.js "http://localhost:8000/wp-content/themes/Eisai/assets/js/html5.min.js"
 # sitemap
-wget -O localhost\:8000/sitemap-index.xsl  "http://localhost:8000/wp-sitemap-index.xsl"
-wget -O localhost\:8000/sitemap.xsl  "http://localhost:8000/wp-sitemap.xsl"
-wget -O localhost\:8000/sitemap-posts-post-1.xml  "http://localhost:8000/wp-sitemap-posts-post-1.xml"
-wget -O localhost\:8000/sitemap-posts-page-1.xml  "http://localhost:8000/wp-sitemap-posts-page-1.xml"
-wget -O localhost\:8000/sitemap-taxonomies-category-1.xml  "http://localhost:8000/wp-sitemap-taxonomies-category-1.xml"
-wget -O localhost\:8000/sitemap-taxonomies-post_tag-1.xml  "http://localhost:8000/wp-sitemap-taxonomies-post_tag-1.xml"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap-index.xsl  "http://localhost:8000/wp-sitemap-index.xsl"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap.xsl  "http://localhost:8000/wp-sitemap.xsl"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap-posts-post-1.xml  "http://localhost:8000/wp-sitemap-posts-post-1.xml"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap-posts-page-1.xml  "http://localhost:8000/wp-sitemap-posts-page-1.xml"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap-taxonomies-category-1.xml  "http://localhost:8000/wp-sitemap-taxonomies-category-1.xml"
+wget  --no-cache --no-cookies -O localhost\:8000/sitemap-taxonomies-post_tag-1.xml  "http://localhost:8000/wp-sitemap-taxonomies-post_tag-1.xml"
 echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="https://'$DOMAIN'/sitemap-index.xsl" ?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://'$DOMAIN'/sitemap-posts-post-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-posts-page-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-taxonomies-category-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-taxonomies-post_tag-1.xml</loc></sitemap></sitemapindex>\n' > localhost\:8000/sitemap.xml
 
 
@@ -43,6 +44,10 @@ find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\/\/localh
 
 # fix double escaped absolute links also
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\\\\\/\\\\\/localhost:8000\\\\\//\//g" {} \;
+
+# fix ?ver= 
+find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\?ver=[0-9\.]\{1,\}//g" {} \;
+IFS=$'\n'; for f in $(find . -iname "*\?ver?*"); do g=$(echo "$f" | sed 's/\?ver=.*//'); mv "$f" "$g"; done
 
 # remove index.html from links
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\/index.html\?/\//g" {} \;

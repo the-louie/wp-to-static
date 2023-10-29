@@ -20,7 +20,7 @@ cd "$BASEDIR" || exit
 ##########################
 
 wget  --no-cache --no-cookies -X wp-json -X author -X comments --reject-regex="/feed/" --convert-links -mEpnp "http://localhost:8000/"
-wget  --no-cache --no-cookies -O "./localhost:8000/index.html"  "http://localhost:8000/" 
+wget  --no-cache --no-cookies -O "./localhost:8000/index.html"  "http://localhost:8000/"
 wget  --no-cache --no-cookies -X wp-json --convert-links -mEpnp "http://localhost:8000/lost/"
 mkdir -p localhost\:8000/wp-includes/js
 wget  --no-cache --no-cookies -O localhost\:8000/wp-includes/js/wp-emoji-release.min.js "http://localhost:8000/wp-includes/js/wp-emoji-release.min.js?ver=6.1"
@@ -39,13 +39,19 @@ echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl
 # cleanup site
 ##########################
 
+# remove all index.html?p=XXX.html
+find ./ -name "index.html*p=*.html" -exec rm {} \;
+
 # fix all absolute links to relative links
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\/\/localhost:8000\//\//g" {} \;
 
 # fix double escaped absolute links also
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\\\\\/\\\\\/localhost:8000\\\\\//\//g" {} \;
 
-# fix ?ver= 
+# remove wordpress in headers
+find ./ -iname "*.html" -exec sed --in-place "s/WordPress\s\w\{1,\}\.\w\{1,\}\.\{0,\}\w\{0,\}/OpenBSD 7.2 - ed/g" {} \;
+
+# fix ?ver=
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\?ver=[0-9\.]\{1,\}//g" {} \;
 IFS=$'\n'; for f in $(find . -iname "*\?ver?*"); do g=$(echo "$f" | sed 's/\?ver=.*//'); mv "$f" "$g"; done
 

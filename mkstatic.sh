@@ -20,11 +20,14 @@ cd "$BASEDIR" || exit
 ##########################
 
 wget  --no-cache --no-cookies -X wp-json -X author -X comments --reject-regex="/feed/" --convert-links -mEpnp "http://localhost:8000/"
+
 wget  --no-cache --no-cookies -O "./localhost:8000/index.html"  "http://localhost:8000/"
 wget  --no-cache --no-cookies -X wp-json --convert-links -mEpnp "http://localhost:8000/lost/"
 mkdir -p localhost\:8000/wp-includes/js
 wget  --no-cache --no-cookies -O localhost\:8000/wp-includes/js/wp-emoji-release.min.js "http://localhost:8000/wp-includes/js/wp-emoji-release.min.js?ver=6.1"
 wget  --no-cache --no-cookies -O localhost\:8000/wp-content/themes/Eisai/assets/js/html5.min.js "http://localhost:8000/wp-content/themes/Eisai/assets/js/html5.min.js"
+wget  --no-cache --no-cookies -O localhost\:8000/assets/MPLUSRounded1c-Medium.ttf "http://localhost:8000/wp-content/themes/eisai-child/assets/MPLUSRounded1c-Medium.ttf"
+mkdir -p localhost\:8000/assets && mv localhost:8000/wp-content/themes/eisai-child/assets/* localhost\:8000/assets/
 # sitemap
 wget  --no-cache --no-cookies -O localhost\:8000/sitemap-index.xsl  "http://localhost:8000/wp-sitemap-index.xsl"
 wget  --no-cache --no-cookies -O localhost\:8000/sitemap.xsl  "http://localhost:8000/wp-sitemap.xsl"
@@ -76,4 +79,4 @@ find ./localhost\:8000/ -name '*.html' -exec node ../bake-js.js {} \;
 
 # upload site
 ##########################
-rsync -av ./localhost\:8000/ static:/mnt/storage/louie.se/www2/
+rsync -e "ssh -i ~/.ssh/keys/static-nokey" -av ./localhost\:8000/ static:/mnt/storage/louie.se/www2/

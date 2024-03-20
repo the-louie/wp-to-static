@@ -1,10 +1,15 @@
 #! /bin/bash
 
 BASEDIR='./output'
+LOCALURL='localhost:8000'
 DOMAIN='louie.se'
 
 # cleanup and init
 ##########################
+
+which parallel > /dev/null 2>&1 || { echo >&2 "I require parallel but it's not installed. Aborting."; exit 1; }
+which wget > /dev/null 2>&1 || { echo >&2 "I require wget but it's not installed. Aborting."; exit 1; }
+which node > /dev/null 2>&1 || { echo >&2 "I require wget but it's not installed. Aborting."; exit 1; }
 
 rm -rf "$BASEDIR" || exit
 mkdir "$BASEDIR" || exit
@@ -41,9 +46,12 @@ echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl
 
 # cleanup site
 ##########################
-
 # remove all index.html?p=XXX.html
 find ./ -name "index.html*p=*.html" -exec rm {} \;
+
+# fix all absolute links that needs to be absolute (open graph stuff etc)
+find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/^\(.*meta property=\"og:.*\)https*:\/\/localhost:8000\/\(.*\)$/\1https:\/\/$DOMAIN\/\2/g" {} \;
+find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/^\(.*meta name=\"twitter:.*\)https*:\/\/localhost:8000\/\(.*\)$/\1https:\/\/$DOMAIN\/\2/g" {} \;
 
 # fix all absolute links to relative links
 find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\/\/localhost:8000\//\//g" {} \;
@@ -73,8 +81,11 @@ rm ./localhost\:8000/xmlrpc.php\?rsd
 echo -ne "User-agent: *\nDisallow: /lost/\n\nSitemap: /sitemap.xml\n" > localhost\:8000/robots.txt
 
 # bake in all local javascript and minify html
-find ./localhost\:8000/ -name '*.html' -exec node ../bake-js.js {} \;
+# single thread ./mkstatic.sh  389.51s user 18.20s system 116% cpu 5:48.60 total
+# find ./localhost\:8000/ -name '*.html' -exec node ../bake-js.js {} \;
 
+# parallell ./mkstatic.sh  830.76s user 45.18s system 790% cpu 1:50.87 total
+find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 node ../bake-js.js {}
 
 
 # upload site

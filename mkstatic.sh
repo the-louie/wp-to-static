@@ -42,7 +42,14 @@ wget  --no-cache --no-cookies -O localhost\:8000/sitemap-taxonomies-category-1.x
 wget  --no-cache --no-cookies -O localhost\:8000/sitemap-taxonomies-post_tag-1.xml  "http://$LOCALURL/wp-sitemap-taxonomies-post_tag-1.xml"
 echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="https://'$DOMAIN'/sitemap-index.xsl" ?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://'$DOMAIN'/sitemap-posts-post-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-posts-page-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-taxonomies-category-1.xml</loc></sitemap><sitemap><loc>https://'$DOMAIN'/sitemap-taxonomies-post_tag-1.xml</loc></sitemap></sitemapindex>\n' > localhost\:8000/sitemap.xml
 
-
+# download images from header meta-tags
+for f in $(find ./localhost\:8000/ -iname "*.html" -exec sed -n "s/^.*meta.*:image.*content=\"\(.*\)\">/\1/p" {} \; | sort | uniq | sed -n 's/http:\/\///p'); do
+    if [ ! -f "$f" ]; then
+        DIR=$(dirname "$f")
+        test -d "$DIR" || mkdir -p "$DIR";
+        wget --no-cache --no-cookies -O "$f" "http://$f";
+    fi;
+done
 
 # cleanup site
 ##########################

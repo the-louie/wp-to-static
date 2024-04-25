@@ -1,8 +1,9 @@
 #! /bin/bash
 
-BASEDIR='./output'
-LOCALURL='localhost:8000'
-DOMAIN='louie.se'
+export BASEDIR='./output'
+export LOCALURL='localhost:8000'
+export DOMAIN='louie.se'
+
 
 # cleanup and init
 ##########################
@@ -55,66 +56,29 @@ done
 
 # cleanup site
 ##########################
-# remove all index.html?p=XXX.html
 echo "Cleanup ?p=..."
-find ./ -name "index.html*p=*.html" -exec rm {} \;
+find ./localhost\:8000/ -type f -name "index.html*p=*.html" -print0 | parallel --eta --bar --progress -0 -exec rm {}
 
-# fix all absolute links that needs to be absolute (open graph stuff etc)
-echo "Fix special absolute links"
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/^\(.*meta property=\"og:.*\)https*:\/\/$LOCALURL\/\(.*\)$/\1https:\/\/$DOMAIN\/\2/g" {} \;
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/^\(.*meta name=\"twitter:.*\)https*:\/\/$LOCALURL\/\(.*\)$/\1https:\/\/$DOMAIN\/\2/g" {} \;
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/^\(.*link rel=\"canonical\" href=\"\)https*:\/\/$LOCALURL\/\(.*\)$/\1https:\/\/$DOMAIN\/\2/g" {} \;
-
-# fix all absolute links to relative links
-echo "fix all general absolute links"
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\/\/$LOCALURL\/\{0,1\}/\//g" {} \;
-#find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\/\/$LOCALURL/\//g" {} \;
-
-# fix double escaped absolute links also
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/https*:\\\\\/\\\\\/$LOCALURL\\\\\//\//g" {} \;
-
-# remove wordpress in headers
-echo "Remove wordpress from headers"
-find ./ -iname "*.html" -exec sed --in-place "s/WordPress\s\w\{1,\}\.\w\{1,\}\.\{0,\}\w\{0,\}/OpenBSD 7.5 - ed/g" {} \;
-
-# fix ?ver=
-echo "fix ?ver="
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\?ver=[0-9\.]\{1,\}//g" {} \;
+echo "Remove ?ver= files"
 IFS=$'\n'; for f in $(find . -iname "*\?ver?*"); do g=$(echo "$f" | sed 's/\?ver=.*//'); mv "$f" "$g"; done
 
-# remove index.html from links
-echo "remove index.html from links"
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\/index.html\?/\//g" {} \;
-
-# update urls for assets
-echo "update assets url"
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/\/wp-content\/themes\/eisai-child\/assets\//\/assets\//g" {} \;
-find ./localhost\:8000/ -name '*.css' -exec sed --in-place "s/\/wp-content\/themes\/eisai-child\/assets\//\/assets\//g" {} \;
-
-# fix links in xml
-echo "fix XML"
-find ./localhost\:8000/ -name '*.xml' -exec sed --in-place "s/https*:\/\/$LOCALURL\//https:\/\/"$DOMAIN"\//g" {} \;
-find ./localhost\:8000/ -name '*.xml' -exec sed --in-place "s/\/wp-sitemap.xsl/\/sitemap.xsl/g" {} \;
-
-# remove xmlrpc file
 echo "remove xmlrpc"
 rm ./localhost\:8000/xmlrpc.php\?rsd
 
-# fix robots.txt and remove wordpress stuff
-echo "remove wordpress files"
+echo "fix html"
+find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_html.sh {}
+
+echo "fix css"
+find ./localhost\:8000/ -type f -name '*.css' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_css.sh {}
+
+echo "fix XML"
+find ./localhost\:8000/ -type f -name '*.xml' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_xml.sh {}
+
+echo "Update robots.txt"
 echo -ne "User-agent: *\nDisallow: /lost/\n\nSitemap: /sitemap.xml\n" > localhost\:8000/robots.txt
 
-# Remove references to feed in headers
-echo "Remove references to feeds"
-find ./localhost\:8000/ -name '*.html' -exec sed --in-place "s/<link rel=\"alternate\" type=\"application\/rss+xml\" .*\/>//" {} \;
-
 # bake in all local javascript and minify html
-# single thread ./mkstatic.sh  389.51s user 18.20s system 116% cpu 5:48.60 total
-# find ./localhost\:8000/ -name '*.html' -exec node ../bake-js.js {} \;
-
-# parallell ./mkstatic.sh  830.76s user 45.18s system 790% cpu 1:50.87 total
 find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 node ../bake-js.js {}
-
 
 # upload site
 ##########################

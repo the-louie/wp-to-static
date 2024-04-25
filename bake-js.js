@@ -71,10 +71,8 @@ Array.from(cssImports).forEach(cssImport => {
     }
 })
 
-const jsImports = mainHtml.matchAll(/<script src=["']\/?(.*?)['"].*?<\/script>/g)
-
 console.log(`Baking-JS for ${fileName} (${dirName})`);
-
+const jsImports = mainHtml.matchAll(/<script src=["']\/?(.*?)['"].*?<\/script>/g)
 Array.from(jsImports).forEach(jsImport => {
 
     let jsFile = jsImport[1].replace('%3F', '?')
@@ -100,7 +98,13 @@ Array.from(jsImports).forEach(jsImport => {
     }
 });
 
-
-const miniHtml = minify(mainHtml, minifyConf);
-fs.writeFileSync(fileName, miniHtml);
+try {
+    const miniHtml = minify(mainHtml, minifyConf);
+    fs.writeFileSync(fileName, miniHtml);
+} catch(e) {
+    console.log("ERR: --- exception ---");
+    console.error("ERR: ", e);
+    console.log("ERR: ", fileName);
+    fs.writeFileSync(fileName, mainHtml);
+}
 

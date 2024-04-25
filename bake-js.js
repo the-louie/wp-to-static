@@ -65,7 +65,8 @@ Array.from(cssImports).forEach(cssImport => {
     } else {
         const cssFileName = fixRootPath(cssImport[1].replace(/%3F.*/, '')).replace(/\?.*/, '');
 	    const css = fs.readFileSync(cssFileName).toString()
-        mainHtml = mainHtml.replace(cssImport[0], `<style>${css}</style>`);
+        const cssNoUtf = css.replace('@charset "UTF-8";', '');
+        mainHtml = mainHtml.replace(cssImport[0], `<style>${cssNoUtf}</style>`);
         console.log(` * ${cssFileName}`);
     }
 })

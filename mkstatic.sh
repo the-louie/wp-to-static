@@ -75,7 +75,7 @@ echo "fix XML"
 find ./localhost\:8000/ -type f -name '*.xml' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_xml.sh {}
 
 echo "Update robots.txt"
-echo -ne "User-agent: *\nDisallow: /lost/\n\nSitemap: /sitemap.xml\n" > localhost\:8000/robots.txt
+echo -ne "User-agent: *\nDisallow: /lost/\nDisallow: /lost\nDisallow: /lost/*\n\nSitemap: /sitemap.xml\n" > localhost\:8000/robots.txt
 
 # bake in all local javascript and minify html
 find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 node ../bake-js.js {}

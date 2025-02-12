@@ -1,13 +1,16 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const https = require('https');
 const path = require('path');
-const minify = require('html-minifier').minify;
+const htmlMinify = require('html-minifier').minify;
+const jsMinify = require('uglify-js').minify;
 
 const argFile = process.argv[2];
 const fileName = path.normalize(argFile);
 const dirName = path.dirname(fileName);
+const DEBUG = (process.argv[3]?.toLowerCase() === 'debug')
 
-const minifyConf = {
+const htmlMinifyConf = {
     collapseInlineTagWhitespace: false,
     collapseWhitespace: true,
     decodeEntities: true,
@@ -28,6 +31,22 @@ const minifyConf = {
     useShortDoctype: true,
 }
 
+const minifyJsConf = {
+    module: false,
+    toplevel: true,
+    v8: true,
+    ie: true,
+    webkit: true,
+}
+
+const exclude_mini_js = [
+    'wp-content/plugins/megamenu/js/maxmegamenu.js',
+    'wp-includes/js/jquery/jquery.min.js',
+    'wp-includes/js/hoverIntent.min.js',
+    'wp-content/themes/eisai-child/assets/js/font-awesome.js',
+];
+//const exclude_css = [ './wp-content/plugins/megamenu/css/mega-menu-special.css' ]
+
 if (!fileName) {
     console.error(`Usage: ${process.argv[0]} ${process.argv[1]} [file]`);
     process.exit(1);
@@ -42,7 +61,7 @@ const download = (url) => new Promise((resolve, reject) => {
             result += d.toString();
         });
         // after download completed close filestream
-        file.on("finish", () => {
+        response.on("finish", () => {
             resolve(result);
         });
      });
@@ -50,61 +69,93 @@ const download = (url) => new Promise((resolve, reject) => {
 
 
 const fixRootPath = (path) => {
-    let npath = path.replace(/^.*\/wp-content/, 'localhost:8000/wp-content').replace(/^.*\/wp-includes/, 'localhost:8000/wp-includes');
-    if (npath.indexOf('localhost:8000') === -1) {
-        npath = ('localhost:8000/' + npath).replace('//', '/');
-    }
-    return npath;
+    const npath = path.replace(/^.*\/wp-content/, 'wp-content').replace(/^.*\/wp-includes/g, 'wp-includes').replace(/^\.?\//, '');
+    return `./site/${npath}`;
 }
 
-console.log(`Baking CSS for ${fileName}`);
-const cssImports = mainHtml.matchAll(/<link rel=["']stylesheet['"] .*? href=["']\/?(.*?)['"].*?\/>/g)
-Array.from(cssImports).forEach(cssImport => {
-    if (cssImport[1].indexOf('http') !== -1) {
-        // webfile - skip for now
-    } else {
-        const cssFileName = fixRootPath(cssImport[1].replace(/%3F.*/, '')).replace(/\?.*/, '');
-	    const css = fs.readFileSync(cssFileName).toString()
-        const cssNoUtf = css.replace('@charset "UTF-8";', '');
-        mainHtml = mainHtml.replace(cssImport[0], `<style>${cssNoUtf}</style>`);
-        console.log(` * ${cssFileName}`);
-    }
-})
+const main = async () => {
+    console.log(`Preparing ${fileName}`);
 
-console.log(`Baking-JS for ${fileName} (${dirName})`);
-const jsImports = mainHtml.matchAll(/<script src=["']\/?(.*?)['"].*?<\/script>/g)
-Array.from(jsImports).forEach(jsImport => {
+    console.log(` * Baking CSS`);
+    const cssImports = mainHtml.matchAll(/<link rel=["']stylesheet['"] .*?href=["']\/?(.*?)['"].*?\/?>/g)
+    Array.from(cssImports).forEach(cssImport => {
+        if (cssImport[1].indexOf('http') !== -1) {
+            // webfile - skip for now
+        } else {
+            const cssFileName = fixRootPath(cssImport[1].replace(/%3F.*/, '')).replace(/\?.*/, '');
+            if (fs.existsSync(cssFileName)) {
+                const css = fs.readFileSync(cssFileName).toString()
+                mainHtml = mainHtml.replace(cssImport[0], `\n<!-- ${cssFileName} -->\n<style>${css}</style>\n`);
+            } else {
+                //console.log(` ! Skipping '${cssFileName}', not found in local filesystem`)
+            }
+        }
+    })
 
-    let jsFile = jsImport[1].replace('%3F', '?')
+    const jsImports = Array.from(mainHtml.matchAll(/<script .*?src=["']\/?(.*?)['"].*?<\/script>/g));
 
-    if (jsFile.indexOf('http') !== -1) {
-        // webfile - skip for now
-    } else {
+    console.log(` * Baking JS`);
+
+    for (const jsImport of jsImports)  {
+        let jsFile = jsImport[1].replace('%3F', '?')
+
         // localfile
         if (jsFile.indexOf('?') !== -1) {
-            jsFile = `./localhost:8000/${jsFile.replace(/\?.*/, '')}`;
-        } else {
-            jsFile = `${dirName}/${jsFile}`;
+            // If there's a query parameter remove it
+            jsFile = `./${jsFile.replace(/\?.*/, '')}`;
         }
-	jsFile = jsFile.replace(/localhost:8000\/.*\/wp-content/, 'localhost:8000/wp-content');
-        try {
-	    const jsFileName = path.normalize(jsFile);
-            const js = fs.readFileSync(jsFileName).toString();
-            mainHtml = mainHtml.replace(jsImport[0], `<script>${js}</script>`);
-            console.log(` * ${jsFile}`);
-        } catch (err) {
-            console.error(` E ${err.message} ${jsFile}`);
-        }
-    }
-});
 
-try {
-    const miniHtml = minify(mainHtml, minifyConf);
-    fs.writeFileSync(fileName, miniHtml);
-} catch(e) {
-    console.log("ERR: --- exception ---");
-    console.error("ERR: ", e);
-    console.log("ERR: ", fileName);
-    fs.writeFileSync(fileName, mainHtml);
+        if (jsFile.indexOf('http') !== -1) {
+            console.log(` * Skipping ${jsFile}, has http in it`);
+            continue;
+            // FIXME: Skipping web downloadable files for now.
+            // console.log(` * Downloading ${jsFile}, has http in it`)
+            // const content = await download(jsFile);
+            // mainHtml = mainHtml.replace(jsImport[0], `\n\n<!-- ${jsFile} -->\n<script>\n${content}\n</script>\n`);
+        }
+
+        jsFileName = path.normalize(fixRootPath(jsFile));
+
+        if (!fs.existsSync(jsFileName)) {
+            console.log(` * Skipping ${jsFile}, not found in local filesystem`)
+        } else {
+            try {
+                // Skip minifying some files
+                if (exclude_mini_js.includes(jsFile)) {
+                    console.log(` * processing ${jsFile} (mini: NO)`)
+                } else {
+                    console.log(` * processing ${jsFile} (mini: YES)`)
+                    const js = fs.readFileSync(jsFileName).toString();
+                    fs.writeFileSync(jsFileName, jsMinify(js).code.toString());
+                }
+
+                // Pga någon bug har jag tillfälligt avaktiverat script-integrity kontrollen.
+                // den hash som skrivs in i filerna (och antar genereras av nodejs) stämmer inte
+                // med den hash man får genom att köra manuellt:
+                // cat font-awesome.js | openssl dgst -sha384 --binary | openssl base64 -A
+                // const hash = crypto.createHash('sha384').update(miniJs).digest('base64')
+                // mainHtml = mainHtml.replace(jsImport[0], `\n\n<!-- ${jsFile} -->\n<script integrity="sha384-${hash}" src="/${jsFile}"></script>\n`);
+                mainHtml = mainHtml.replace(jsImport[0], `\n\n<!-- ${jsFile} -->\n<script src="/${jsFile}"></script>\n`);
+            } catch (err) {
+                console.error(` E ${err.message} ${jsFile}`);
+                console.error(err)
+                console.error("\n")
+            }
+        }
+    };
+
+    if (!DEBUG) {
+        console.log(` * Minifying HTML`);
+        const miniHtml = htmlMinify(mainHtml, htmlMinifyConf) // DANGEROUS until we have all scripts and styles inline --->>> .replace(/<\/style><style>/, " ").replace(/<\/script><script>/, " ");
+
+        console.log(` * Writing`)
+        fs.writeFileSync(fileName,miniHtml);
+    } else {
+        console.log(` * DEBUG`)
+        fs.writeFileSync(fileName, mainHtml);
+    }
+
 }
 
+
+main()

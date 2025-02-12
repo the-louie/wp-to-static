@@ -15,6 +15,9 @@ sed --in-place "s/https*:\\\\\/\\\\\/$LOCALURL\\\\\//\//g" "$1"
 echo "fix ?ver="
 sed --in-place "s/\?ver=[0-9\.]\{1,\}//g" "$1"
 
+echo " * Remove all shortlinks in html ..."
+sed --in-place "s/<link rel=['\"]shortlink['\"].*\/>//g" "$1";
+
 echo "remove index.html from links"
 sed --in-place "s/\/index.html\?/\//g" "$1"
 

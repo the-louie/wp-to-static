@@ -21,10 +21,12 @@ cd "$BASEDIR" || exit
 # use permalinks for the urls but rather ?p=NN links. Could mmaybe
 # be replaced with /page/NN?
 
+# is it up
+curl -so /dev/null http://${LOCALURL}/ || { echo "http://${LOCALURL}/ not up. Exiting..."; exit; }
 
 # download site
 ##########################
-wget  --no-cache --no-cookies -X wp-json -X author -X comments --reject-regex="/feed/" -mEpnp "http://$LOCALURL/"
+wget  --no-cache --no-cookies -X wp-json -X author -X comments -X wp-admin --reject-regex="/feed/" -mEpnp "http://$LOCALURL/"
 
 wget  --no-cache --no-cookies -O "./$LOCALURL/index.html"  "http://$LOCALURL/"
 wget  --no-cache --no-cookies -X wp-json -mEpnp "http://$LOCALURL/lost/"
@@ -65,6 +67,9 @@ IFS=$'\n'; for f in $(find . -iname "*\?ver?*"); do g=$(echo "$f" | sed 's/\?ver
 echo "remove xmlrpc"
 rm ./localhost\:8000/xmlrpc.php\?rsd
 
+echo " * Remove all php files ..."
+find "./localhost\:8000/" -iname "*.php*" -exec rm {} \;
+
 echo "fix html"
 find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_html.sh {}
 
@@ -75,7 +80,7 @@ echo "fix XML"
 find ./localhost\:8000/ -type f -name '*.xml' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_xml.sh {}
 
 echo "Update robots.txt"
-echo -ne "User-agent: *\nDisallow: /lost/\nDisallow: /lost\nDisallow: /lost/*\n\nSitemap: /sitemap.xml\n" > localhost\:8000/robots.txt
+echo -ne "User-agent: *\nDisallow: /lost/\nDisallow: /lost\nDisallow: /lost/*\n\nSitemap: https://$DOMAIN/sitemap.xml\n" > localhost\:8000/robots.txt
 
 # bake in all local javascript and minify html
 find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --progress -0 node ../bake-js.js {}

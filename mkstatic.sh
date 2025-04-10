@@ -89,4 +89,4 @@ find ./localhost\:8000/ -type f -name '*.html' -print0 | parallel --eta --bar --
 ##########################
 rsync -e "ssh -i ~/.ssh/keys/static-nokey" -av ./localhost\:8000/ static:/mnt/storage/louie.se/www2/
 
-
+date

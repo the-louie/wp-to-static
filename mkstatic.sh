@@ -1,8 +1,16 @@
 #! /bin/bash
 
+#
+#
+# Louie.se static site generator
+#
+#
+#
+
 export BASEDIR='./output'
 export LOCALURL='localhost:8000'
 export DOMAIN='louie.se'
+export STARTDIR=$(pwd)
 
 
 # cleanup and init
@@ -12,8 +20,11 @@ which parallel > /dev/null 2>&1 || { echo >&2 "I require parallel but it's not i
 which wget > /dev/null 2>&1 || { echo >&2 "I require wget but it's not installed. Aborting."; exit 1; }
 which node > /dev/null 2>&1 || { echo >&2 "I require wget but it's not installed. Aborting."; exit 1; }
 
-rm -rf "$BASEDIR" || exit
-mkdir "$BASEDIR" || exit
+# cleanup and init
+##########################
+test -d "$BASEDIR/$LOCAL_DOMAIN" && { rm -rf "$BASEDIR/$LOCAL_DOMAIN" || exit; }
+test -d "$BASEDIR/$OUTPUTDIR" && { rm -rf "$BASEDIR/$OUTPUTDIR" || exit; }
+mkdir -p "$BASEDIR/$LOCAL_DOMAIN" || exit
 cd "$BASEDIR" || exit
 
 # FIXME:
@@ -78,6 +89,9 @@ find ./localhost\:8000/ -type f -name '*.css' -print0 | parallel --eta --bar --p
 
 echo "fix XML"
 find ./localhost\:8000/ -type f -name '*.xml' -print0 | parallel --eta --bar --progress -0 /bin/bash ../textreplace_xml.sh {}
+
+echo " * Copy in overlay files ..."
+rsync -av "${STARTDIR}/overlay/" "./$OUTPUTDIR/"
 
 echo "Update robots.txt"
 echo -ne "User-agent: *\nDisallow: /lost/\nDisallow: /lost\nDisallow: /lost/*\n\nSitemap: https://$DOMAIN/sitemap.xml\n" > localhost\:8000/robots.txt

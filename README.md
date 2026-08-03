@@ -30,8 +30,10 @@ Useful flags:
 | `--feed-max-items N` | cap feed length (default: no cap) |
 
 Configuration is environment-driven: `WPTS_LOCAL_URL` (accepts a full origin),
-`WPTS_DOMAIN`, `WPTS_OUTPUT`, `WPTS_UPLOAD`, `WPTS_SSH_KEY`, `WPTS_API_SECRET`,
-`WPTS_INSECURE`.
+`WPTS_DOMAIN`, `WPTS_OUTPUT`, `WPTS_UPLOAD`, `WPTS_API_SECRET`, `WPTS_INSECURE`.
+
+The ssh identity for uploading comes from the uploading user's `~/.ssh/config`,
+not from here.
 
 ## Stale hosts in the database
 

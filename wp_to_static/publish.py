@@ -39,14 +39,9 @@ def upload(cfg: Config, *, dry_run: bool = False) -> None:
     be safe -- the state file written by the verify stage is the natural place
     to keep it.
     """
-    command = [
-        "rsync",
-        "-e",
-        f"ssh -i {cfg.ssh_key}",
-        "-av",
-        f"{cfg.site_dir}/",
-        cfg.upload_target,
-    ]
+    # No -e: the ssh identity and any host options come from the uploading
+    # user's ~/.ssh/config. A key path has no business being in the repo.
+    command = ["rsync", "-av", f"{cfg.site_dir}/", cfg.upload_target]
     if dry_run:
         command.insert(1, "--dry-run")
     result = subprocess.run(command)

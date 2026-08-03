@@ -23,8 +23,9 @@ DEFAULT_DOMAIN = "louie.se"
 # -- a post's guid is written once at creation and never updated -- so they
 # have to be normalised to the public domain alongside the current build host.
 DEFAULT_LEGACY_HOSTS = ("localhost:8000", "louie_se.i.louie.se")
+# Host alias resolves via the uploading user's ~/.ssh/config, which is
+# also where the identity file belongs -- not in this repo.
 DEFAULT_UPLOAD_TARGET = "static:/mnt/storage/louie.se/www2/"
-DEFAULT_SSH_KEY = "~/.ssh/keys/static-nokey"
 
 # The child theme ships its assets under a long theme path that we flatten to
 # /assets/ in the published site.
@@ -67,7 +68,6 @@ class Config:
     local_scheme: str = DEFAULT_LOCAL_SCHEME
     domain: str = DEFAULT_DOMAIN
     upload_target: str = DEFAULT_UPLOAD_TARGET
-    ssh_key: str = DEFAULT_SSH_KEY
     minify: bool = True
     # Opt-out of TLS verification when talking to the build instance. Needed
     # only for internal hosts whose certificate does not strictly validate --
@@ -93,17 +93,17 @@ class Config:
     # failure rather than an edit. Small shrinks warn and can be overridden;
     # anything larger halts.
     shrink_warn_limit: int = 5
-
-    @property
-    def state_file(self) -> Path:
-        """Build-to-build state, kept outside base_dir since that is wiped."""
-        return self.repo_dir / ".wpts-state.json"
     # Taxonomy bases. Defaults match WordPress's own defaults; the mu-plugin
     # reports the real values so a Settings -> Permalinks change is picked up.
     tag_base: str = "tag"
     category_base: str = "category"
     # Shared secret for the build endpoint, if the mu-plugin is installed.
     api_secret: str | None = field(default=None, repr=False)
+
+    @property
+    def state_file(self) -> Path:
+        """Build-to-build state, kept outside base_dir since that is wiped."""
+        return self.repo_dir / ".wpts-state.json"
 
     @property
     def site_dir(self) -> Path:
@@ -155,7 +155,6 @@ class Config:
             local_scheme=scheme,
             domain=os.environ.get("WPTS_DOMAIN", DEFAULT_DOMAIN),
             upload_target=os.environ.get("WPTS_UPLOAD", DEFAULT_UPLOAD_TARGET),
-            ssh_key=os.environ.get("WPTS_SSH_KEY", DEFAULT_SSH_KEY),
             api_secret=(
                 os.environ.get("WPTS_API_SECRET")
                 or env.get("WPTS_API_SECRET")

@@ -23,6 +23,9 @@ from typing import Any
 from .config import Config
 
 BUILD_DATA_PATH = "/wp-json/louie-static/v1/build-data"
+# Schema the generator expects from the mu-plugin. A lower number means the
+# copy installed in wp-content/mu-plugins/ is older than this checkout.
+EXPECTED_SCHEMA = 2
 REST_PATH = "/wp-json/wp/v2"
 TIMEOUT = 60
 
@@ -93,6 +96,7 @@ class BuildData:
     posts: list[Post]
     urls: list[str] = field(default_factory=list)
     from_plugin: bool = True
+    schema: int = 0
 
     def posts_for(self, term: Term) -> list[Post]:
         """Posts carrying this term, newest first.
@@ -194,6 +198,7 @@ def parse_build_data(payload: dict[str, Any], *, from_plugin: bool = True) -> Bu
         posts=posts,
         urls=list(payload.get("urls", [])),
         from_plugin=from_plugin,
+        schema=int(payload.get("schema", 0)),
     )
 
 

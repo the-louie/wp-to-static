@@ -140,6 +140,16 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
                 "build data came from stock REST, not the mu-plugin; feed URLs "
                 "are reconstructed rather than authoritative"
             )
+        elif data.schema < wpapi.EXPECTED_SCHEMA:
+            # A stale copy of the plugin degrades the build without failing:
+            # term membership silently falls back to each post's own term list,
+            # which themes filter.
+            report.warn(
+                f"mu-plugin is out of date (schema {data.schema}, expected "
+                f"{wpapi.EXPECTED_SCHEMA}). Term membership is falling back to "
+                "per-post term lists, which themes can filter. Re-copy "
+                "wp-plugin/louie-static-build.php to wp-content/mu-plugins/."
+            )
 
     if "crawl" in stages:
         if not mirror.is_up(cfg):

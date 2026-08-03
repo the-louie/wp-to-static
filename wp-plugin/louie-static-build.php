@@ -26,6 +26,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 const LOUIE_STATIC_NS = 'louie-static/v1';
 
+/**
+ * Payload schema version. Bump when the response gains a field the generator
+ * relies on, so a stale copy of this file is detected rather than silently
+ * degrading the build.
+ *
+ *   1 - initial
+ *   2 - terms carry post_ids (term -> posts membership)
+ */
+const LOUIE_STATIC_SCHEMA = 2;
+
 add_action( 'rest_api_init', 'louie_static_register_routes' );
 
 function louie_static_register_routes() {
@@ -231,7 +241,7 @@ function louie_static_urls() {
 function louie_static_build_data() {
 	return rest_ensure_response(
 		array(
-			'schema' => 1,
+			'schema' => LOUIE_STATIC_SCHEMA,
 			'site'   => louie_static_site_data(),
 			'terms'  => louie_static_terms_data(),
 			'posts'  => louie_static_posts_data(),

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "site": {
     "name": "louie.se",
     "description": "Ett litet hem pa internet",
@@ -27,7 +27,11 @@
       "count": 2,
       "link": "http://localhost:8000/tag/kod/",
       "feed_link": "http://localhost:8000/tag/kod/feed/",
-      "atom_link": "http://localhost:8000/tag/kod/feed/atom/"
+      "atom_link": "http://localhost:8000/tag/kod/feed/atom/",
+      "post_ids": [
+        42,
+        41
+      ]
     },
     {
       "taxonomy": "post_tag",
@@ -38,7 +42,10 @@
       "count": 1,
       "link": "http://localhost:8000/tag/k%c3%b6tt/",
       "feed_link": "http://localhost:8000/tag/k%c3%b6tt/feed/",
-      "atom_link": "http://localhost:8000/tag/k%c3%b6tt/feed/atom/"
+      "atom_link": "http://localhost:8000/tag/k%c3%b6tt/feed/atom/",
+      "post_ids": [
+        41
+      ]
     },
     {
       "taxonomy": "category",
@@ -49,7 +56,10 @@
       "count": 1,
       "link": "http://localhost:8000/category/teknik/",
       "feed_link": "http://localhost:8000/category/teknik/feed/",
-      "atom_link": "http://localhost:8000/category/teknik/feed/atom/"
+      "atom_link": "http://localhost:8000/category/teknik/feed/atom/",
+      "post_ids": [
+        42
+      ]
     },
     {
       "taxonomy": "category",
@@ -60,7 +70,8 @@
       "count": 0,
       "link": "http://localhost:8000/category/tomt/",
       "feed_link": "http://localhost:8000/category/tomt/feed/",
-      "atom_link": "http://localhost:8000/category/tomt/feed/atom/"
+      "atom_link": "http://localhost:8000/category/tomt/feed/atom/",
+      "post_ids": []
     }
   ],
   "posts": [
@@ -74,8 +85,12 @@
       "author": "The Louie",
       "excerpt": "Kort sammanfattning",
       "content": "<p>Hela texten med <em>markup</em> och ]]&gt; i sig.</p>",
-      "categories": [21],
-      "tags": [11],
+      "categories": [
+        21
+      ],
+      "tags": [
+        11
+      ],
       "thumbnail": null
     },
     {
@@ -89,7 +104,10 @@
       "excerpt": "Sammanfattning med & tecken",
       "content": "<p>Text</p>",
       "categories": [],
-      "tags": [11, 12]
+      "tags": [
+        11,
+        12
+      ]
     }
   ],
   "urls": [

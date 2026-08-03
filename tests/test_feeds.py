@@ -232,3 +232,20 @@ def test_crosscheck_reports_fetch_failure(data: BuildData, cfg: Config) -> None:
     result = crosscheck_terms(data, cfg, fetch, sample=1)
     assert not result.ok
     assert "connection refused" in result.failures[0]
+
+
+def test_stale_plugin_is_detectable(data: BuildData) -> None:
+    """A plugin without post_ids degrades membership silently, so the schema
+    version is what makes it visible."""
+    from wp_to_static.wpapi import EXPECTED_SCHEMA, parse_build_data
+
+    assert data.schema == EXPECTED_SCHEMA
+    old = parse_build_data({"site": {"name": "x", "url": "/"}, "terms": [], "posts": []})
+    assert old.schema < EXPECTED_SCHEMA
+
+
+def test_post_ids_are_authoritative_over_post_term_lists(data: BuildData) -> None:
+    """Membership must come from term -> posts when the source supplies it."""
+    kod = next(t for t in data.terms if t.slug == "kod")
+    assert kod.post_ids
+    assert [p.id for p in data.posts_for(kod)] == list(kod.post_ids)

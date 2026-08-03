@@ -61,7 +61,13 @@ def upload(cfg: Config, *, dry_run: bool = False) -> None:
     """
     # No -e: the ssh identity and any host options come from the uploading
     # user's ~/.ssh/config. A key path has no business being in the repo.
-    command = ["rsync", "-av", f"{cfg.site_dir}/", cfg.upload_target]
+    #
+    # --omit-dir-times because -a implies -t, and setting a directory's mtime
+    # requires owning it. The web root contains directories this user does not
+    # own -- .well-known/ belongs to the ACME client -- so without it every such
+    # directory produces "failed to set times: Operation not permitted" and
+    # turns a clean upload into exit 23. Directory mtimes do not affect serving.
+    command = ["rsync", "-av", "--omit-dir-times", f"{cfg.site_dir}/", cfg.upload_target]
     if dry_run:
         command.insert(1, "--dry-run")
 

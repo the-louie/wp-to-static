@@ -277,3 +277,22 @@ def test_explain_handles_unknown_code() -> None:
     from wp_to_static.publish import explain
 
     assert "rsync(1)" in explain(99, "")
+
+
+def test_upload_omits_directory_times(mirror: Config, monkeypatch) -> None:
+    """The web root has directories the uploading user does not own; setting
+    their mtimes fails and turns a good upload into exit 23."""
+    from wp_to_static import publish
+
+    seen = {}
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+    monkeypatch.setattr(
+        publish.subprocess, "run", lambda cmd, **kw: (seen.update(cmd=cmd), Result())[1]
+    )
+    publish.upload(mirror)
+    assert "--omit-dir-times" in seen["cmd"]
+    assert "--delete" not in seen["cmd"], "would destroy hand-placed content"

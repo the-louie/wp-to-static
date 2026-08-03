@@ -58,6 +58,10 @@ class Config:
     # verbatim would leak the build host into every feed item and change the
     # identifiers subscribers already hold.
     legacy_hosts: tuple[str, ...] = DEFAULT_LEGACY_HOSTS
+    # Where bylines should point. The crawl excludes /author/ (CRAWL_EXCLUDES),
+    # so author archives do not exist in the mirror and every byline would
+    # otherwise be a 404. Set to None to leave the links untouched.
+    author_page: str | None = "/who-am-i/"
     # Taxonomy bases. Defaults match WordPress's own defaults; the mu-plugin
     # reports the real values so a Settings -> Permalinks change is picked up.
     tag_base: str = "tag"

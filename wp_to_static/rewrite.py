@@ -49,6 +49,10 @@ FEED_LINK_RE = re.compile(
     r"<link\s+rel=['\"]alternate['\"]\s+type=['\"]application/(?:rss|atom)\+xml['\"][^>]*>"
 )
 
+# Any author archive path, with or without pagination. Matched after the host
+# rewrite has already made links root-relative.
+AUTHOR_LINK_RE = re.compile(r"/author/[^\"'\s>]*")
+
 # The original was s/\/index.html\?/\//g. In GNU BRE, \? is the "zero or one"
 # quantifier applied to the preceding character, so it made the trailing "l"
 # optional and also matched "/index.htm" -- it never matched a literal "?" at
@@ -133,6 +137,8 @@ def rewrite_html(text: str, cfg: Config, feed_links: list[FeedLink] | None = Non
     text = SHORTLINK_RE.sub("", text)
     text = OEMBED_LINK_RE.sub("", text)
     text = DEAD_ENDPOINT_LINK_RE.sub("", text)
+    if cfg.author_page:
+        text = AUTHOR_LINK_RE.sub(cfg.author_page, text)
     text = INDEX_HTML_RE.sub("/", text)
     text = text.replace(THEME_ASSET_PREFIX, PUBLIC_ASSET_PREFIX)
 

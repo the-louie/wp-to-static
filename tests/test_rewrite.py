@@ -7,6 +7,8 @@ divergences are asserted separately in test_fixed_bugs_*.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import shutil
 import subprocess
 from pathlib import Path
@@ -275,3 +277,32 @@ def test_deep_rest_links_removed(cfg: Config) -> None:
         'href="http://localhost:8000/wp-json/wp/v2/tags/23" />'
     )
     assert "wp-json" not in rewrite_html(doc, cfg)
+
+
+# --- bylines ----------------------------------------------------------------
+
+
+def test_author_links_point_at_the_bio_page(cfg: Config) -> None:
+    """The crawl excludes /author/, so bylines would otherwise all 404."""
+    out = rewrite_html(
+        '<span>by <a href="http://localhost:8000/author/louie/">louie</a></span>', cfg
+    )
+    assert 'href="/who-am-i/"' in out
+    assert "/author/" not in out
+
+
+def test_paginated_author_archives_too(cfg: Config) -> None:
+    out = rewrite_html('<a href="/author/louie/page/2/">older</a>', cfg)
+    assert 'href="/who-am-i/"' in out
+
+
+def test_any_author_slug_is_redirected(cfg: Config) -> None:
+    """A second author would 404 just the same, so the rule is not slug-specific."""
+    out = rewrite_html('<a href="/author/someone-else/">x</a>', cfg)
+    assert 'href="/who-am-i/"' in out
+
+
+def test_author_rewrite_can_be_disabled(cfg: Config) -> None:
+    off = replace(cfg, author_page=None)
+    out = rewrite_html('<a href="/author/louie/">x</a>', off)
+    assert 'href="/author/louie/"' in out

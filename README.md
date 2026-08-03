@@ -180,8 +180,13 @@ replacement for one. Deploying them is a manual step, documented in
 .venv/bin/python -m pytest        # 115 tests, all offline
 ```
 
-Everything runs against fixtures; no WordPress required. `tests/test_rewrite.py`
-additionally runs the original `textreplace_*.sh` scripts and asserts the
-Python rewrites produce byte-identical output — which is why those shell
-scripts are still in the tree, and why they should stay until the equivalence
-stops being interesting.
+Everything runs against fixtures; no WordPress required, and no shell or Node
+toolchain either.
+
+During the port, `tests/test_rewrite.py` also ran the original `textreplace_*.sh`
+scripts and asserted the Python produced byte-identical output. That proof did
+its job — the equivalence held right up to the moment the shell scripts were
+deleted — but its value was decaying: the Python has deliberately diverged from
+sed in several places, each needing another pin to keep the comparison passing.
+The transforms are asserted directly now, and the two places the Python
+knowingly does *not* reproduce sed's behaviour are recorded as `test_fixed_bug_*`.

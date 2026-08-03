@@ -1,19 +1,15 @@
-"""Rewrite tests, including an A/B against the original sed scripts.
+"""Rewrite tests.
 
-The A/B is the equivalence proof for this stage: the bash scripts are still in
-the tree, so we run both on identical input and diff. Two intentional
-divergences are asserted separately in test_fixed_bugs_*.
+These once ran the original textreplace_*.sh scripts alongside the Python and
+diffed the output, which was the equivalence proof for the port. The shell
+scripts are gone now that the port is live, so the transforms are asserted
+directly instead. test_fixed_bug_* record the two places the Python
+deliberately does not reproduce what sed did.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-
-import shutil
-import subprocess
-from pathlib import Path
-
-import pytest
 
 from conftest import WP_PAGE
 from wp_to_static.config import Config
@@ -39,52 +35,7 @@ WP_SITEMAP = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def _run_bash(script: Path, text: str, tmp_path: Path, suffix: str, cfg: Config) -> str:
-    """Run one of the original textreplace scripts on `text` and return the result."""
-    target = tmp_path / f"subject{suffix}"
-    target.write_text(text, encoding="utf-8")
-    subprocess.run(
-        ["/bin/bash", str(script), str(target)],
-        check=True,
-        capture_output=True,
-        env={
-            "PATH": "/usr/bin:/bin",
-            "LOCALURL": cfg.local_url,
-            "DOMAIN": cfg.domain,
-        },
-    )
-    return target.read_text(encoding="utf-8")
-
-
-bash_required = pytest.mark.skipif(
-    shutil.which("sed") is None, reason="GNU sed not available"
-)
-
-
-@bash_required
-def test_html_matches_bash_original(cfg: Config, repo: Path, tmp_path: Path) -> None:
-    bash_out = _run_bash(repo / "textreplace_html.sh", WP_PAGE, tmp_path, ".html", cfg)
-    py_out = rewrite_html(WP_PAGE, cfg, feed_links=site_feed_links(cfg))
-    assert py_out == bash_out
-
-
-@bash_required
-def test_xml_matches_bash_original(cfg: Config, repo: Path, tmp_path: Path) -> None:
-    for name, doc in (("feed", WP_FEED), ("sitemap", WP_SITEMAP)):
-        bash_out = _run_bash(
-            repo / "textreplace_xml.sh", doc, tmp_path, f"-{name}.xml", cfg
-        )
-        assert rewrite_xml(doc, cfg) == bash_out, name
-
-
-@bash_required
-def test_css_matches_bash_original(cfg: Config, repo: Path, tmp_path: Path) -> None:
-    css = ".x{background:url(/wp-content/themes/eisai-child/assets/bg.png)}\n"
-    bash_out = _run_bash(repo / "textreplace_css.sh", css, tmp_path, ".css", cfg)
-    assert rewrite_css(css) == bash_out
-
-
-# --- behaviour, independent of the bash originals ---------------------------
+# --- transforms ------------------------------------------------------------
 
 
 def test_absolute_tags_stay_absolute(cfg: Config) -> None:

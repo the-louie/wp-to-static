@@ -14,6 +14,8 @@ over time; it does not lose them by accident.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +49,27 @@ def save_state(cfg: Config, pages: int) -> None:
     state = load_state(cfg)
     state["pages"] = pages
     cfg.state_file.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    share_with_group(cfg.state_file)
+
+
+def share_with_group(path: Path) -> None:
+    """Make a generated file writable by whoever else builds this repo.
+
+    Builds run as more than one user, so a state file created by one of them
+    must not lock the others out. Inheriting the parent directory's group is
+    what a setgid directory would do; doing it explicitly means the repo does
+    not have to be set up that way, and the repo root cannot be chmod'ed by
+    anyone but its owner anyway.
+
+    Best effort: failures here must never fail a build.
+    """
+    try:
+        gid = path.parent.stat().st_gid
+        if path.stat().st_gid != gid:
+            os.chown(path, -1, gid)
+        path.chmod(path.stat().st_mode | stat.S_IRGRP | stat.S_IWGRP)
+    except (OSError, PermissionError):
+        pass
 
 
 def check_growth(cfg: Config, report: Report, *, allow_shrink: bool = False) -> GrowthResult:

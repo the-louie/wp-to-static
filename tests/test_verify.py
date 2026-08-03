@@ -96,3 +96,24 @@ def test_count_pages_counts_html_only(cfg: Config) -> None:
     make_pages(c, 3)
     (c.site_dir / "feed.xml").write_text("<rss/>")
     assert count_pages(c) == 3
+
+
+def test_state_file_is_group_shared(cfg: Config) -> None:
+    """Builds run as more than one user; the state file must not lock the
+    others out of the next build."""
+    import os
+    import stat as statmod
+
+    c = fresh(cfg)
+    make_pages(c, 3)
+    save_state(c, 3)
+    mode = c.state_file.stat().st_mode
+    assert mode & statmod.S_IRGRP, "group must be able to read the state"
+    assert mode & statmod.S_IWGRP, "group must be able to rewrite the state"
+    assert c.state_file.stat().st_gid == c.state_file.parent.stat().st_gid
+
+
+def test_share_with_group_never_raises(tmp_path: Path) -> None:
+    from wp_to_static.verify import share_with_group
+
+    share_with_group(tmp_path / "does-not-exist.json")  # must not raise

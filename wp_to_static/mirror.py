@@ -37,8 +37,10 @@ SITEMAP_PROVIDERS = (
     "taxonomies-post_tag",
 )
 
+# The emoji polyfill used to be fetched here. The scrub stage removes every
+# script tag that referenced it, so downloading it only produced an orphan file
+# that shipped WordPress strings in an otherwise clean tree.
 EXTRA_ASSETS = (
-    ("wp-includes/js/wp-emoji-release.min.js", "wp-includes/js/wp-emoji-release.min.js"),
     (
         "wp-content/themes/Eisai/assets/js/html5.min.js",
         "wp-content/themes/Eisai/assets/js/html5.min.js",

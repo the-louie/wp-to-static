@@ -15,7 +15,7 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 
-from . import bake, feeds, mirror, overlay, publish, verify, wpapi
+from . import bake, feeds, mirror, overlay, publish, scrub, verify, wpapi
 from .config import Config
 from .report import Report
 from .rewrite import FeedLink, rewrite_css, rewrite_html, rewrite_xml, site_feed_links
@@ -28,6 +28,7 @@ STAGES = (
     "feeds",
     "rewrite",
     "assets",
+    "scrub",
     "overlay",
     "bake",
     "verify",
@@ -201,6 +202,21 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
         for path in still_missing:
             report.warn(f"referenced asset could not be fetched: {path}")
 
+    # After the asset sweep, which fetches from WordPress using the original
+    # /wp-content/ paths -- renaming them first would make every fetch 404.
+    if "scrub" in stages:
+        stats = scrub.scrub_tree(cfg)
+        log(f"scrub: {stats.summary()}")
+        for rename in stats.dirs_renamed:
+            log(f"  renamed {rename}")
+        if stats.collisions:
+            detail = ", ".join(f"{k}->{v}" for k, v in sorted(stats.collisions.items())[:5])
+            report.error(
+                f"{len(stats.collisions)} class renames collide with names that "
+                f"already exist: {detail}. The two would merge and inherit each "
+                "other's styling. Change the prefix in scrub.CLASS_RENAMES."
+            )
+
     if "overlay" in stages:
         copied = overlay.apply_overlay(cfg)
         log(f"overlay: {', '.join(copied)}")
@@ -216,6 +232,17 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
             )
 
     if "verify" in stages:
+        # Against the finished tree: overlay files arrive after scrub and bake
+        # rewrites every page, so this is the only point where what is checked
+        # is what gets published.
+        leftovers = scrub.find_leftovers(cfg)
+        if leftovers:
+            top = sorted(leftovers.items(), key=lambda kv: -kv[1])[:6]
+            detail = ", ".join(f"{k}({v})" for k, v in top)
+            report.error(
+                f"{len(leftovers)} WordPress fingerprints survived: {detail}"
+            )
+
         growth = verify.check_growth(cfg, report, allow_shrink=args.allow_shrink)
         delta = "" if growth.delta is None else f" ({growth.delta:+d})"
         log(f"verify: {growth.pages} pages{delta}")

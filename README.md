@@ -55,9 +55,10 @@ dependency.
 | `feeds` | generates site and per-term RSS/Atom, then checks them against WordPress |
 | `rewrite` | URL rewriting, feed autodiscovery, scrubs the WordPress version |
 | `assets` | re-fetches referenced files the crawl could not reach |
+| `scrub` | removes WordPress fingerprints (see below) |
 | `overlay` | copies `_overlay/`, substituting `__DOMAIN__` and `__EXPIRES__` |
 | `bake` | inlines CSS, minifies JS once per file, minifies HTML |
-| `verify` | refuses to publish a build that lost pages |
+| `verify` | refuses to publish a build that lost pages or leaked a fingerprint |
 | `upload` | rsync, opt-in |
 
 ## Usage
@@ -150,6 +151,40 @@ Builds fall back to the stock REST API without it and say so loudly, but that
 path reconstructs URLs by hand and is not the supported one. The payload
 carries a schema version, so a stale copy of the plugin is reported rather than
 silently degrading the build.
+
+## Scrubbing WordPress out
+
+The site is not WordPress any more, so it should not read like it. This is
+tidying, not concealment — nothing here tries to defeat fingerprinting.
+
+- `/wp-content/` → `/content/` and `/wp-includes/` → `/inc/`, on disk and in
+  every reference. `_server/louie-legacy-paths.conf` keeps the old URLs working,
+  because they appear in already-published feed items and in anything shared.
+- `wp-block-*` → `blk-*`, remaining `wp-*` → `ui-*`, in CSS, markup and inline
+  JS together. **Not** `site-*`: the theme already uses `site-content`, and
+  `wp-content` would have merged straight into it. `check_collisions()` enforces
+  that the chosen prefixes are free rather than trusting they are.
+- The emoji polyfill, the oEmbed script, the speculation-rules block and the
+  emoji settings JSON are deleted outright. All were dead, and the last was
+  pulling WordPress.org CDN URLs into all 118 pages.
+
+The rename is scoped to `<style>`/`<script>` bodies and class/id attributes, so
+prose is never touched — one post talks about wp-to-static by name.
+
+`verify` then scans the finished tree and fails the build on any surviving
+fingerprint. It runs last on purpose: overlay files arrive after `scrub` and
+`bake` rewrites every page, so anywhere earlier would be checking an artefact
+that never gets published. That is exactly how a `Disallow: /wp-admin/` in our
+own robots.txt survived the first attempt.
+
+### The invalid selector
+
+The theme's stylesheet contained `.has-drop-cap:not(:focus)::first-letter::after`
+— two chained pseudo-elements, which is not legal CSS. `lightningcss` rejected
+the whole 282KB sheet and `minify-html` silently passed it through unminified,
+on every page. Fixing that one selector is worth **122KB per page**, and lets
+the minifier strip the theme's WordPress-branded header comment as a side
+effect. `bake.py` treats CSS that fails to shrink as suspicious for this reason.
 
 ## Things specific to this site
 

@@ -19,14 +19,37 @@ Useful flags:
 
 | Flag | Why |
 |---|---|
-| `--only STAGE...` / `--skip STAGE...` | stages are `crawl sitemaps cleanup feeds rewrite overlay bake upload` |
+| `--only STAGE...` / `--skip STAGE...` | stages are `crawl sitemaps cleanup feeds rewrite assets overlay bake upload` |
 | `--no-minify` | leaves HTML readable, for diffing against the old bash pipeline |
 | `--build-data FILE` | use a captured JSON payload instead of talking to WordPress |
 | `--crosscheck-all` | verify every term's feed against WordPress, not a sample of 5 |
 | `--feed-max-items N` | cap feed length (default: no cap) |
 
-Configuration is environment-driven: `WPTS_LOCAL_URL`, `WPTS_DOMAIN`,
-`WPTS_OUTPUT`, `WPTS_UPLOAD`, `WPTS_SSH_KEY`, `WPTS_API_SECRET`.
+Configuration is environment-driven: `WPTS_LOCAL_URL` (accepts a full origin),
+`WPTS_DOMAIN`, `WPTS_OUTPUT`, `WPTS_UPLOAD`, `WPTS_SSH_KEY`, `WPTS_API_SECRET`,
+`WPTS_INSECURE`.
+
+## Stale hosts in the database
+
+WordPress bakes absolute URLs into post content and into each post's `guid` at
+authoring time, and never rewrites them. This site still carries
+`http://localhost:8000` from an earlier home, which causes two problems:
+
+- **guids** would ship pointing at the build host, and would differ from the
+  identifiers subscribers already hold. `Config.legacy_hosts` normalises them.
+- **images** referenced with the old host are off-host to the crawler, so wget
+  skips them. The `assets` stage re-requests anything referenced but missing
+  from the current origin — 90 files on the current site.
+
+Both are workarounds. The real fix is on the WordPress side:
+
+```sh
+wp search-replace 'http://localhost:8000' 'https://louiese.i.louie.se' --precise --all-tables
+```
+
+(`wp search-replace` rewrites serialised data safely; plain SQL does not. Take a
+database backup first, and `--dry-run` it before committing.) Once that is done
+`legacy_hosts` can shrink and the `assets` stage should find nothing to do.
 
 ## Feeds
 

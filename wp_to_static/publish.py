@@ -9,8 +9,28 @@ unverified until someone runs it with `--dry-run` and reads the file list.
 from __future__ import annotations
 
 import subprocess
+import sys
 
 from .config import Config
+
+# The codes worth naming. 23 in particular reads as a generic failure but
+# usually means the receiving user could not write or chown specific files.
+KNOWN_CODES = {
+    1: "syntax or usage error",
+    2: "protocol incompatibility",
+    5: "error starting client-server protocol (often ssh failing to connect)",
+    10: "error in socket I/O",
+    11: "error in file I/O",
+    12: "error in rsync protocol data stream",
+    23: (
+        "partial transfer due to error -- some files were not transferred. "
+        "Most often the remote user cannot overwrite existing files, or cannot "
+        "set their permissions/ownership"
+    ),
+    24: "partial transfer due to vanished source files",
+    30: "timeout in data send/receive",
+    255: "ssh failed (host unreachable, auth refused, unknown host)",
+}
 
 
 class PublishError(RuntimeError):
@@ -44,6 +64,33 @@ def upload(cfg: Config, *, dry_run: bool = False) -> None:
     command = ["rsync", "-av", f"{cfg.site_dir}/", cfg.upload_target]
     if dry_run:
         command.insert(1, "--dry-run")
-    result = subprocess.run(command)
-    if result.returncode != 0:
-        raise PublishError(f"rsync failed with status {result.returncode}")
+
+    # stdout stays on the terminal (it is the file list); stderr is captured so
+    # the per-file failures can be reported instead of scrolling past behind a
+    # bare exit code. rsync writes one line per problem file, then a summary.
+    result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
+    stderr = (result.stderr or "").strip()
+    if stderr:
+        print(stderr, file=sys.stderr)
+
+    if result.returncode == 0:
+        return
+
+    raise PublishError(explain(result.returncode, stderr))
+
+
+def explain(code: int, stderr: str) -> str:
+    """Turn an rsync exit code and its stderr into something actionable."""
+    detail = KNOWN_CODES.get(code, "see rsync(1) for this exit code")
+    lines = [
+        line
+        for line in stderr.splitlines()
+        if line.startswith("rsync:") or "failed" in line or "denied" in line
+    ]
+    message = f"rsync exited {code}: {detail}"
+    if lines:
+        shown = lines[:8]
+        message += "\n  " + "\n  ".join(shown)
+        if len(lines) > len(shown):
+            message += f"\n  ... and {len(lines) - len(shown)} more"
+    return message

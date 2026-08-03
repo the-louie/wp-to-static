@@ -239,3 +239,41 @@ def test_environment_beats_dotenv(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("WPTS_API_SECRET", "from-env")
     (tmp_path / ".env").write_text("WP_RANDOM_STRING=from-dotenv\n")
     assert Config.from_env(tmp_path).api_secret == "from-env"
+
+
+# --- upload error reporting -------------------------------------------------
+
+
+def test_explain_names_the_common_partial_transfer_case() -> None:
+    from wp_to_static.publish import explain
+
+    msg = explain(23, "")
+    assert "partial transfer" in msg
+    assert "overwrite existing files" in msg
+
+
+def test_explain_includes_the_offending_files() -> None:
+    from wp_to_static.publish import explain
+
+    stderr = (
+        'rsync: [receiver] mkstemp "/mnt/x/index.html" failed: Permission denied (13)\n'
+        'rsync: [receiver] chgrp "/mnt/x/feed.xml" failed: Operation not permitted (1)\n'
+        "some noise that is not an error\n"
+    )
+    msg = explain(23, stderr)
+    assert "index.html" in msg and "feed.xml" in msg
+    assert "some noise" not in msg
+
+
+def test_explain_truncates_long_error_lists() -> None:
+    from wp_to_static.publish import explain
+
+    stderr = "\n".join(f'rsync: file{i} failed: Permission denied' for i in range(20))
+    msg = explain(23, stderr)
+    assert "and 12 more" in msg
+
+
+def test_explain_handles_unknown_code() -> None:
+    from wp_to_static.publish import explain
+
+    assert "rsync(1)" in explain(99, "")

@@ -230,7 +230,12 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
 
     if "upload" in stages:
         log("uploading")
-        publish.upload(cfg, dry_run=args.dry_run)
+        try:
+            publish.upload(cfg, dry_run=args.dry_run)
+        except publish.PublishError as exc:
+            report.error(str(exc))
+            report.emit()
+            return 1
 
     report.emit()
     return 0

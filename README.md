@@ -102,13 +102,17 @@ path.
 
 ## Hand-placed content on the server
 
-The document root is not generated wholesale. `/dumpster/` holds standalone JS
-pages that posts link to (`/dumpster/misc/jpeg-distort/`, for one), and ACME
-challenges live under `/.well-known/`. None of it comes from this repo.
+The upload tree is not generated wholesale. `.well-known/` holds ACME
+challenges, is owned by the ACME client, and is not even writable by the
+uploading user — which is why `security.txt` fails to upload.
 
-So the upload deliberately omits `--delete`, and adding it would delete all of
-that on the next build. If stale generated files ever need clearing, remove
-them by path rather than reaching for `--delete`.
+`/dumpster/` holds standalone JS pages that posts link to
+(`/dumpster/misc/jpeg-distort/`, for one), but nginx serves it from a separate
+root (`www/`, not `www2/`), so it is outside the upload tree entirely.
+
+The upload deliberately omits `--delete`, which would destroy the ACME
+challenges. If stale generated files ever need clearing, remove them by path
+rather than reaching for `--delete`.
 
 A side effect worth knowing: because nothing is ever removed, some URLs still
 resolve on the live site purely because an old build left the files there.

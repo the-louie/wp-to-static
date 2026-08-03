@@ -251,7 +251,7 @@ def generate(
 
     for term in data.terms:
         directory = site_relative(term.link, cfg)
-        if not directory:
+        if not directory or directory in cfg.feed_exclude:
             continue
         archive_public = cfg.public_url(f"{directory}/")
         label = f"{data.site.name}: {term.name}"

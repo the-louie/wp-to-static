@@ -19,6 +19,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .config import PUBLIC_ASSET_PREFIX, THEME_ASSET_PREFIX, Config
 
@@ -174,6 +175,59 @@ def write_sitemap_index(cfg: Config, members: list[str]) -> None:
     (cfg.site_dir / "sitemap.xml").write_text(doc, encoding="utf-8")
 
 
+PAGINATION_SUFFIX_RE = re.compile(r"/page/\d+$")
+
+
+def fetch_missing_pages(cfg: Config, urls: list[str]) -> tuple[int, list[str]]:
+    """Fetch public pages the crawl never reached.
+
+    wget only finds what something links to. A term archive that nothing links
+    to -- an internal tag the theme hides from listings, say -- is invisible to
+    it, and we would otherwise publish a feed whose channel <link> is a 404.
+    The plugin knows every public URL, so the gap is closeable.
+
+    An archive fetched this way links to its own /page/N/, which the URL list
+    does not enumerate, so pagination is followed from each page actually
+    fetched until it stops producing new ones.
+
+    Returns (fetched, still_missing).
+    """
+    fetched = 0
+    failed: list[str] = []
+    queue = list(urls)
+    seen: set[str] = set()
+
+    while queue:
+        url = queue.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+
+        path = urlsplit(url).path.strip("/")
+        target = (
+            (cfg.site_dir / path / "index.html") if path else (cfg.site_dir / "index.html")
+        )
+        if target.exists():
+            continue
+        if not fetch(url, target, required=False):
+            failed.append(url)
+            continue
+        fetched += 1
+
+        # Queue this archive's pagination, e.g. /tag/x/page/2/. The base is the
+        # archive root, not the page we are on -- otherwise page 2's link to
+        # page 3 would not match and the walk would stop after one step.
+        body = target.read_text(encoding="utf-8", errors="replace")
+        base = PAGINATION_SUFFIX_RE.sub("", url.rstrip("/"))
+        for href in re.findall(r'href=["\']([^"\']+)["\']', body):
+            if href.startswith("/"):
+                href = f"{cfg.local_origin}{href}"
+            if href.startswith(f"{base}/page/") and href not in seen:
+                queue.append(href)
+
+    return fetched, failed
+
+
 LOCAL_REF_RE = re.compile(r'(?:href|src)=["\']?(/[^"\'\s>]+)')
 
 # Referenced paths that legitimately do not exist as files in a static mirror.
@@ -190,6 +244,13 @@ def fetch_missing_assets(cfg: Config, *, workers: int = 8) -> tuple[int, list[st
     produces a root-relative link to a file that was never downloaded. Here the
     paths are already rewritten, so re-requesting them from the current origin
     resolves it regardless of which host the content named.
+
+    Ordering note: this runs after the rewrite stage, so whatever it fetches is
+    never rewritten. That is fine for images, which is all it currently
+    retrieves, but a stylesheet arriving this way would keep its unflattened
+    theme paths and its build-host URLs. Left as-is deliberately -- the theme is
+    to be made self-contained, which removes the case entirely. If that changes,
+    move the sweep before the rewrite and re-request with absolute URLs instead.
 
     Returns (fetched, still_missing).
     """

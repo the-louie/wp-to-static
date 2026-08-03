@@ -15,12 +15,14 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 
-from . import bake, feeds, mirror, overlay, publish, wpapi
+from . import bake, feeds, mirror, overlay, publish, verify, wpapi
 from .config import Config
+from .report import Report
 from .rewrite import FeedLink, rewrite_css, rewrite_html, rewrite_xml, site_feed_links
 
 STAGES = (
     "crawl",
+    "pages",
     "sitemaps",
     "cleanup",
     "feeds",
@@ -28,6 +30,7 @@ STAGES = (
     "assets",
     "overlay",
     "bake",
+    "verify",
     "upload",
 )
 
@@ -83,14 +86,12 @@ def stage_rewrite(cfg: Config, term_links: dict[str, tuple[str, str, str]]) -> N
 
 
 def stage_feeds(
-    cfg: Config, args: argparse.Namespace
+    cfg: Config,
+    args: argparse.Namespace,
+    data: wpapi.BuildData,
+    report: Report,
 ) -> dict[str, tuple[str, str, str]]:
     """Generate the site and per-term feeds, then check them against WordPress."""
-    if args.build_data:
-        data = wpapi.load_build_data(args.build_data)
-    else:
-        data = wpapi.fetch_build_data(cfg)
-
     generated = feeds.generate(data, cfg, max_items=args.feed_max_items)
     written = generated.write_all(cfg)
     tags = sum(1 for t in data.terms if t.is_tag)
@@ -101,10 +102,7 @@ def stage_feeds(
     )
 
     if args.no_crosscheck:
-        print(
-            "WARNING: cross-check skipped; generated feeds are unverified",
-            file=sys.stderr,
-        )
+        report.warn("cross-check skipped; generated feeds are unverified")
         return generated.term_links
 
     context = wpapi.tls_context(cfg)
@@ -113,18 +111,36 @@ def stage_feeds(
         with urllib.request.urlopen(url, timeout=30, context=context) as response:
             return response.read().decode("utf-8", errors="replace")
 
+    # Only guid membership and ordering are compared, not titles, dates or
+    # body content. A feed could carry the right posts with wrong metadata and
+    # still pass; accepted for now.
     sample = None if args.crosscheck_all else 5
     result = feeds.crosscheck_terms(data, cfg, fetch, sample=sample)
     if not result.ok:
-        raise SystemExit(
-            "cross-check failed against WordPress's own feeds:\n  "
-            + "\n  ".join(result.failures)
-        )
+        for failure in result.failures:
+            report.error(f"cross-check: {failure}")
+        return generated.term_links
     log(f"cross-check ok ({result.checked} terms verified against WordPress)")
     return generated.term_links
 
 
 def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
+    report = Report()
+
+    # Plugin data is needed by two stages, so it is fetched once up front.
+    data: wpapi.BuildData | None = None
+    if {"pages", "feeds"} & stages:
+        data = (
+            wpapi.load_build_data(args.build_data)
+            if args.build_data
+            else wpapi.fetch_build_data(cfg)
+        )
+        if not data.from_plugin:
+            report.warn(
+                "build data came from stock REST, not the mu-plugin; feed URLs "
+                "are reconstructed rather than authoritative"
+            )
+
     if "crawl" in stages:
         if not mirror.is_up(cfg):
             print(f"{cfg.local_origin}/ is not up", file=sys.stderr)
@@ -134,6 +150,15 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
         cfg.site_dir.mkdir(parents=True)
         log("crawling")
         mirror.crawl(cfg)
+
+    # wget only finds what something links to, so an archive nothing links to
+    # is invisible to it. Without this we would publish a feed whose channel
+    # <link> is a 404.
+    if "pages" in stages and data is not None:
+        fetched, unreachable = mirror.fetch_missing_pages(cfg, data.urls)
+        log(f"pages: fetched {fetched} public URLs the crawl did not reach")
+        for url in unreachable:
+            report.warn(f"public URL could not be fetched: {url}")
 
     if "sitemaps" in stages:
         log("sitemaps")
@@ -151,8 +176,8 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
     # guids come out of WordPress with the local host, and the rewrite stage is
     # the one place that owns host rewriting for every *.xml in the tree.
     term_links: dict[str, tuple[str, str, str]] = {}
-    if "feeds" in stages:
-        term_links = stage_feeds(cfg, args)
+    if "feeds" in stages and data is not None:
+        term_links = stage_feeds(cfg, args, data, report)
 
     if "rewrite" in stages:
         stage_rewrite(cfg, term_links)
@@ -163,13 +188,8 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
     if "assets" in stages:
         fetched, still_missing = mirror.fetch_missing_assets(cfg)
         log(f"assets: fetched {fetched} referenced files the crawl missed")
-        if still_missing:
-            print(
-                f"WARNING: {len(still_missing)} referenced files could not be "
-                f"fetched: {', '.join(still_missing[:5])}"
-                + (" ..." if len(still_missing) > 5 else ""),
-                file=sys.stderr,
-            )
+        for path in still_missing:
+            report.warn(f"referenced asset could not be fetched: {path}")
 
     if "overlay" in stages:
         copied = overlay.apply_overlay(cfg)
@@ -180,16 +200,29 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
         stats = bake.bake_tree(cfg)
         log(stats.summary())
         if stats.css_missing or stats.js_missing:
-            print(
-                f"WARNING: {stats.css_missing} css and {stats.js_missing} js "
-                "references did not resolve in the mirror",
-                file=sys.stderr,
+            report.warn(
+                f"{stats.css_missing} css and {stats.js_missing} js references "
+                "did not resolve in the mirror"
             )
+
+    if "verify" in stages:
+        growth = verify.check_growth(cfg, report, allow_shrink=args.allow_shrink)
+        delta = "" if growth.delta is None else f" ({growth.delta:+d})"
+        log(f"verify: {growth.pages} pages{delta}")
+
+    if report.failed:
+        report.emit()
+        print(
+            "\nBuild NOT fit to publish. Nothing was uploaded.",
+            file=sys.stderr,
+        )
+        return 1
 
     if "upload" in stages:
         log("uploading")
         publish.upload(cfg, dry_run=args.dry_run)
 
+    report.emit()
     return 0
 
 
@@ -203,6 +236,11 @@ def main(argv: list[str] | None = None) -> int:
         help="skip HTML/JS minification, for diffing against the bash pipeline",
     )
     parser.add_argument("--upload", action="store_true", help="publish when done")
+    parser.add_argument(
+        "--allow-shrink",
+        action="store_true",
+        help="accept a small drop in page count (see verify stage)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="rsync --dry-run")
     parser.add_argument("--only", nargs="+", choices=STAGES, metavar="STAGE")
     parser.add_argument("--skip", nargs="+", choices=STAGES, metavar="STAGE")

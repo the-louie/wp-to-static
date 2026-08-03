@@ -62,6 +62,18 @@ class Config:
     # so author archives do not exist in the mirror and every byline would
     # otherwise be a 404. Set to None to leave the links untouched.
     author_page: str | None = "/who-am-i/"
+    # Archive directories that should not get a feed, even though the term is
+    # public. Keyed the same way as feeds.site_relative().
+    feed_exclude: tuple[str, ...] = ("category/about",)
+    # A build that publishes fewer pages than the last one is assumed to be a
+    # failure rather than an edit. Small shrinks warn and can be overridden;
+    # anything larger halts.
+    shrink_warn_limit: int = 5
+
+    @property
+    def state_file(self) -> Path:
+        """Build-to-build state, kept outside base_dir since that is wiped."""
+        return self.repo_dir / ".wpts-state.json"
     # Taxonomy bases. Defaults match WordPress's own defaults; the mu-plugin
     # reports the real values so a Settings -> Permalinks change is picked up.
     tag_base: str = "tag"

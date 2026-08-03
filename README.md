@@ -9,8 +9,11 @@ Still works for me(tm), now with tests.
 ```sh
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/python -m wp_to_static              # build into ./output
-.venv/bin/python -m wp_to_static --upload     # build and publish
 ```
+
+**Publishing is manual** — ssh as a separate user with its own keys. `--upload`
+exists but is off by default and has never been run successfully, so treat it as
+unverified.
 
 Requires a local WordPress at `localhost:8000`, plus `wget`, `curl` and `rsync`.
 `wget` still does the crawling; everything after it is Python.
@@ -19,7 +22,8 @@ Useful flags:
 
 | Flag | Why |
 |---|---|
-| `--only STAGE...` / `--skip STAGE...` | stages are `crawl sitemaps cleanup feeds rewrite assets overlay bake upload` |
+| `--only STAGE...` / `--skip STAGE...` | stages are `crawl pages sitemaps cleanup feeds rewrite assets overlay bake verify upload` |
+| `--allow-shrink` | accept a small drop in page count (see below) |
 | `--no-minify` | leaves HTML readable, for diffing against the old bash pipeline |
 | `--build-data FILE` | use a captured JSON payload instead of talking to WordPress |
 | `--crosscheck-all` | verify every term's feed against WordPress, not a sample of 5 |

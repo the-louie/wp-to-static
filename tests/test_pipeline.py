@@ -22,6 +22,7 @@ def make_args(**overrides) -> argparse.Namespace:
         feed_max_items=None,
         crosscheck_all=False,
         no_crosscheck=True,
+        allow_shrink=False,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -170,3 +171,35 @@ def test_fetch_missing_assets_skips_unfetchable_and_present(mirror: Config) -> N
     ]
     assert keep == ["/assets/theme.css"]          # the only fetchable candidate
     assert (mirror.site_dir / "assets/theme.css").exists()  # ...and it is present
+
+
+def test_fetch_missing_pages_follows_pagination(mirror: Config, monkeypatch) -> None:
+    """An archive nothing links to also has /page/N/ that the URL list omits."""
+    from wp_to_static import mirror as m
+
+    served = {
+        f"{mirror.local_origin}/tag/x/": '<a href="/tag/x/page/2/">next</a>',
+        f"{mirror.local_origin}/tag/x/page/2/": '<a href="/tag/x/page/3/">next</a>',
+        f"{mirror.local_origin}/tag/x/page/3/": "<p>end</p>",
+    }
+
+    def fake_fetch(url, dest, *, required=True):
+        if url not in served:
+            return False
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(served[url])
+        return True
+
+    monkeypatch.setattr(m, "fetch", fake_fetch)
+    fetched, failed = m.fetch_missing_pages(mirror, [f"{mirror.local_origin}/tag/x/"])
+    assert fetched == 3, "should follow pagination beyond the supplied URL"
+    assert failed == []
+    assert (mirror.site_dir / "tag/x/page/3/index.html").exists()
+
+
+def test_fetch_missing_pages_reports_unreachable(mirror: Config, monkeypatch) -> None:
+    from wp_to_static import mirror as m
+
+    monkeypatch.setattr(m, "fetch", lambda url, dest, required=True: False)
+    fetched, failed = m.fetch_missing_pages(mirror, [f"{mirror.local_origin}/category/about/"])
+    assert fetched == 0 and len(failed) == 1

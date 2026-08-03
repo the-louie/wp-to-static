@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: wp-to-static
+Version: 2.0.0
+Summary: Static site generator for louie.se
+Requires-Python: >=3.11
+Requires-Dist: minify-html>=0.15
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: feedparser>=6; extra == "dev"

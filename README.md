@@ -63,8 +63,18 @@ dependency.
 ## Usage
 
 ```sh
+./mkstatic.sh                 # build and publish
+./mkstatic.sh --dry-run       # build, then show what would be uploaded
+./mkstatic.sh --skip upload   # build only, into ./output
+```
+
+The wrapper creates the virtualenv on first run and hands every argument
+through to the generator, so `./mkstatic.sh --help` lists the rest. To drive
+it directly instead:
+
+```sh
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
-.venv/bin/python -m wp_to_static            # build into ./output
+.venv/bin/python -m wp_to_static
 ```
 
 Needs `wget`, `curl` and `rsync` on the path, and a reachable WordPress.

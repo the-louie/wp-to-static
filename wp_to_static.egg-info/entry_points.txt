@@ -1,0 +1,2 @@
+[console_scripts]
+wp-to-static = wp_to_static.__main__:main

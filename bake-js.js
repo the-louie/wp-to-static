@@ -52,6 +52,17 @@ if (!fileName) {
     process.exit(1);
 }
 
+// Asset hrefs in the html are site-absolute (/wp-content/...), so they have to
+// be resolved against the root of the mirrored tree rather than the cwd.
+// mkstatic.sh exports OUTPUTDIR; fall back to the first path segment of the
+// file we were handed, which is that same root when invoked by hand.
+const siteRoot = process.env.OUTPUTDIR || fileName.replace(/^\.\//, '').split(path.sep)[0];
+
+if (!siteRoot || !fs.existsSync(siteRoot)) {
+    console.error(`Cannot locate site root '${siteRoot}'. Set OUTPUTDIR or run from the directory containing the mirror.`);
+    process.exit(1);
+}
+
 let mainHtml = fs.readFileSync(fileName).toString(); // Get html-file into a string
 
 const download = (url) => new Promise((resolve, reject) => {
@@ -68,10 +79,14 @@ const download = (url) => new Promise((resolve, reject) => {
 })
 
 
-const fixRootPath = (path) => {
-    const npath = path.replace(/^.*\/wp-content/, 'wp-content').replace(/^.*\/wp-includes/g, 'wp-includes').replace(/^\.?\//, '');
-    return `./site/${npath}`;
+const fixRootPath = (assetPath) => {
+    const npath = assetPath.replace(/^.*\/wp-content/, 'wp-content').replace(/^.*\/wp-includes/g, 'wp-includes').replace(/^\.?\//, '');
+    return `./${siteRoot}/${npath}`;
 }
+
+// A wrong site root used to make every lookup miss, which looked identical to
+// "this page has no local assets". Counting the misses makes that visible.
+const stats = { cssInlined: 0, cssMissing: 0, jsProcessed: 0, jsMissing: 0 };
 
 const main = async () => {
     console.log(`Preparing ${fileName}`);
@@ -86,8 +101,10 @@ const main = async () => {
             if (fs.existsSync(cssFileName)) {
                 const css = fs.readFileSync(cssFileName).toString()
                 mainHtml = mainHtml.replace(cssImport[0], `\n<!-- ${cssFileName} -->\n<style>${css}</style>\n`);
+                stats.cssInlined++;
             } else {
-                //console.log(` ! Skipping '${cssFileName}', not found in local filesystem`)
+                console.log(` ! Skipping '${cssFileName}', not found in local filesystem`)
+                stats.cssMissing++;
             }
         }
     })
@@ -114,11 +131,13 @@ const main = async () => {
             // mainHtml = mainHtml.replace(jsImport[0], `\n\n<!-- ${jsFile} -->\n<script>\n${content}\n</script>\n`);
         }
 
-        jsFileName = path.normalize(fixRootPath(jsFile));
+        const jsFileName = path.normalize(fixRootPath(jsFile));
 
         if (!fs.existsSync(jsFileName)) {
             console.log(` * Skipping ${jsFile}, not found in local filesystem`)
+            stats.jsMissing++;
         } else {
+            stats.jsProcessed++;
             try {
                 // Skip minifying some files
                 if (exclude_mini_js.includes(jsFile)) {
@@ -155,6 +174,7 @@ const main = async () => {
         fs.writeFileSync(fileName, mainHtml);
     }
 
+    console.log(` * css inlined:${stats.cssInlined} missing:${stats.cssMissing} | js processed:${stats.jsProcessed} missing:${stats.jsMissing}`);
 }
 
 

@@ -1,5 +1,7 @@
 User-agent: *
+Disallow: /lost
 Disallow: /lost/
+Disallow: /lost/*
 Disallow: /wp-admin/
 
 User-agent: GPTBot
@@ -7,3 +9,5 @@ Disallow: /
 
 User-agent: Google-Extended
 Disallow: /
+
+Sitemap: https://__DOMAIN__/sitemap.xml

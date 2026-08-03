@@ -12,6 +12,23 @@ Permissions-Policy: document-domain=(), autoplay=self, geolocation=(), vertical-
 Content-Security-Policy: script-src 'self' 'unsafe-inline'; frame-ancestors 'none';
 X-Hello-Nosey: WHAT ARE YOU DOING?!
 
+#
+# Feeds. X-Content-Type-Options: nosniff is set above, so the type has to be
+# right or readers refuse the file. ACAO is widened from the site default
+# because browser-based readers fetch the feed cross-origin.
+#
+/feed.xml
+Content-Type: application/rss+xml; charset=utf-8
+Access-Control-Allow-Origin: *
+
+/atom.xml
+Content-Type: application/atom+xml; charset=utf-8
+Access-Control-Allow-Origin: *
+
+/feed/index.xml
+Content-Type: application/rss+xml; charset=utf-8
+Access-Control-Allow-Origin: *
+
 # #
 # /wp-content/*
 # Access-Control-Allow-Origin: *

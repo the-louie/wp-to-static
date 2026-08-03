@@ -203,3 +203,39 @@ def test_fetch_missing_pages_reports_unreachable(mirror: Config, monkeypatch) ->
     monkeypatch.setattr(m, "fetch", lambda url, dest, required=True: False)
     fetched, failed = m.fetch_missing_pages(mirror, [f"{mirror.local_origin}/category/about/"])
     assert fetched == 0 and len(failed) == 1
+
+
+# --- .env loading -----------------------------------------------------------
+
+
+def test_load_dotenv_parses_and_strips_quotes(tmp_path: Path) -> None:
+    from wp_to_static.config import load_dotenv
+
+    (tmp_path / ".env").write_text(
+        '# comment\nWP_RANDOM_STRING="s3cret"\nOTHER=plain\n\nBAD_LINE\n'
+    )
+    got = load_dotenv(tmp_path / ".env")
+    assert got == {"WP_RANDOM_STRING": "s3cret", "OTHER": "plain"}
+
+
+def test_load_dotenv_missing_file_is_empty(tmp_path: Path) -> None:
+    from wp_to_static.config import load_dotenv
+
+    assert load_dotenv(tmp_path / "nope.env") == {}
+
+
+def test_secret_is_picked_up_from_dotenv(tmp_path: Path, monkeypatch) -> None:
+    """Without this the build silently degrades to stock REST."""
+    from wp_to_static.config import Config
+
+    monkeypatch.delenv("WPTS_API_SECRET", raising=False)
+    (tmp_path / ".env").write_text("WP_RANDOM_STRING=from-dotenv\n")
+    assert Config.from_env(tmp_path).api_secret == "from-dotenv"
+
+
+def test_environment_beats_dotenv(tmp_path: Path, monkeypatch) -> None:
+    from wp_to_static.config import Config
+
+    monkeypatch.setenv("WPTS_API_SECRET", "from-env")
+    (tmp_path / ".env").write_text("WP_RANDOM_STRING=from-dotenv\n")
+    assert Config.from_env(tmp_path).api_secret == "from-env"

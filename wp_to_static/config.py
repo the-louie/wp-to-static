@@ -32,6 +32,30 @@ THEME_ASSET_PREFIX = "/wp-content/themes/eisai-child/assets/"
 PUBLIC_ASSET_PREFIX = "/assets/"
 
 
+def load_dotenv(path: Path) -> dict[str, str]:
+    """Parse a KEY=value file. Missing or unreadable file yields {}.
+
+    Deliberately not exported into os.environ: the values are returned so the
+    caller decides what to use, and a secret in .env does not leak into every
+    subprocess the build spawns (wget, rsync, curl).
+    """
+    values: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
 @dataclass(frozen=True)
 class Config:
     repo_dir: Path
@@ -112,6 +136,10 @@ class Config:
     @classmethod
     def from_env(cls, repo_dir: Path | None = None) -> "Config":
         repo = Path(repo_dir or os.environ.get("WPTS_REPO", ".")).resolve()
+        # Load repo/.env before reading anything. Without this the build
+        # silently falls back to stock REST whenever the secret is not exported,
+        # which produces a quietly worse site rather than an obvious failure.
+        env = load_dotenv(repo / ".env")
         base = Path(os.environ.get("WPTS_OUTPUT", repo / "output"))
         # Accept a full origin in WPTS_LOCAL_URL and split it, so callers can
         # paste the URL they actually browse to.
@@ -128,6 +156,12 @@ class Config:
             domain=os.environ.get("WPTS_DOMAIN", DEFAULT_DOMAIN),
             upload_target=os.environ.get("WPTS_UPLOAD", DEFAULT_UPLOAD_TARGET),
             ssh_key=os.environ.get("WPTS_SSH_KEY", DEFAULT_SSH_KEY),
-            api_secret=os.environ.get("WPTS_API_SECRET"),
+            api_secret=(
+                os.environ.get("WPTS_API_SECRET")
+                or env.get("WPTS_API_SECRET")
+                # The secret has lived in .env under this name since before the
+                # generator read the file itself.
+                or env.get("WP_RANDOM_STRING")
+            ),
             verify_tls=os.environ.get("WPTS_INSECURE", "") == "",
         )

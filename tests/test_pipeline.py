@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
-import shutil
+import argparse
 from pathlib import Path
 
 import pytest
 
-from wp_to_static.__main__ import build, stage_rewrite
+from wp_to_static.__main__ import build
 from wp_to_static.config import Config
 from wp_to_static.mirror import cleanup, write_sitemap_index
 from wp_to_static.overlay import OverlayError, apply_overlay
+
+
+def make_args(**overrides) -> argparse.Namespace:
+    defaults = dict(
+        dry_run=False,
+        build_data=None,
+        feed_max_items=None,
+        crosscheck_all=False,
+        no_crosscheck=True,
+    )
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
 
 PAGE = """<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
@@ -101,7 +113,7 @@ def test_sitemap_index_lists_only_existing_files(mirror: Config) -> None:
 
 def test_full_offline_build(mirror: Config) -> None:
     """Everything except crawl/sitemaps/upload, which need a live WordPress."""
-    assert build(mirror, {"cleanup", "rewrite", "overlay", "bake"}, dry_run=False) == 0
+    assert build(mirror, {"cleanup", "rewrite", "overlay", "bake"}, make_args()) == 0
     out = (mirror.site_dir / "post-a/index.html").read_text()
 
     assert "localhost:8000" not in out
@@ -116,15 +128,24 @@ def test_full_offline_build(mirror: Config) -> None:
 
 def test_build_is_idempotent(mirror: Config) -> None:
     stages = {"cleanup", "rewrite", "overlay", "bake"}
-    build(mirror, stages, dry_run=False)
+    build(mirror, stages, make_args())
     first = (mirror.site_dir / "post-a/index.html").read_bytes()
-    build(mirror, stages, dry_run=False)
+    build(mirror, stages, make_args())
     assert (mirror.site_dir / "post-a/index.html").read_bytes() == first
 
 
 def test_no_minify_leaves_readable_html(mirror: Config) -> None:
     cfg = Config(repo_dir=mirror.repo_dir, base_dir=mirror.base_dir, minify=False)
-    build(cfg, {"rewrite", "bake"}, dry_run=False)
+    build(cfg, {"rewrite", "bake"}, make_args())
     out = (cfg.site_dir / "post-a/index.html").read_text()
     assert "<!DOCTYPE html>" in out
     assert "</head>" in out
+
+
+def test_overlay_never_ships_a_cloudflare_headers_file(mirror: Config) -> None:
+    """_headers was Cloudflare syntax on an nginx host: inert, and published at
+    https://louie.se/_headers for anyone to read. Server config belongs in
+    _server/, which is outside the overlay."""
+    apply_overlay(mirror)
+    assert not (mirror.site_dir / "_headers").exists()
+    assert not (mirror.repo_dir / "_overlay" / "_headers").exists()

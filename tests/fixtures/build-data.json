@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "site": {
+    "name": "louie.se",
+    "description": "Ett litet hem pa internet",
+    "url": "http://localhost:8000/",
+    "language": "sv-SE",
+    "permalink_structure": "/%postname%/",
+    "category_base": "category",
+    "tag_base": "tag",
+    "default_feed": "rss2",
+    "posts_per_rss": 10,
+    "use_excerpt": false,
+    "site_feed": {
+      "rss": "http://localhost:8000/feed/",
+      "atom": "http://localhost:8000/feed/atom/"
+    },
+    "last_modified_gmt": "2026-07-01 09:00:00"
+  },
+  "terms": [
+    {
+      "taxonomy": "post_tag",
+      "id": 11,
+      "slug": "kod",
+      "name": "Kod",
+      "description": "Inlagg om kod",
+      "count": 2,
+      "link": "http://localhost:8000/tag/kod/",
+      "feed_link": "http://localhost:8000/tag/kod/feed/",
+      "atom_link": "http://localhost:8000/tag/kod/feed/atom/"
+    },
+    {
+      "taxonomy": "post_tag",
+      "id": 12,
+      "slug": "k%c3%b6tt",
+      "name": "Kott",
+      "description": "",
+      "count": 1,
+      "link": "http://localhost:8000/tag/k%c3%b6tt/",
+      "feed_link": "http://localhost:8000/tag/k%c3%b6tt/feed/",
+      "atom_link": "http://localhost:8000/tag/k%c3%b6tt/feed/atom/"
+    },
+    {
+      "taxonomy": "category",
+      "id": 21,
+      "slug": "teknik",
+      "name": "Teknik",
+      "description": "",
+      "count": 1,
+      "link": "http://localhost:8000/category/teknik/",
+      "feed_link": "http://localhost:8000/category/teknik/feed/",
+      "atom_link": "http://localhost:8000/category/teknik/feed/atom/"
+    },
+    {
+      "taxonomy": "category",
+      "id": 22,
+      "slug": "tomt",
+      "name": "Tomt",
+      "description": "",
+      "count": 0,
+      "link": "http://localhost:8000/category/tomt/",
+      "feed_link": "http://localhost:8000/category/tomt/feed/",
+      "atom_link": "http://localhost:8000/category/tomt/feed/atom/"
+    }
+  ],
+  "posts": [
+    {
+      "id": 42,
+      "title": "Nyare inlagg om kod",
+      "link": "http://localhost:8000/nyare-inlagg/",
+      "guid": "http://localhost:8000/?p=42",
+      "date_gmt": "2026-07-01T09:00:00+00:00",
+      "modified_gmt": "2026-07-01T09:30:00+00:00",
+      "author": "The Louie",
+      "excerpt": "Kort sammanfattning",
+      "content": "<p>Hela texten med <em>markup</em> och ]]&gt; i sig.</p>",
+      "categories": [21],
+      "tags": [11],
+      "thumbnail": null
+    },
+    {
+      "id": 41,
+      "title": "Aldre inlagg om kod & kott",
+      "link": "http://localhost:8000/aldre-inlagg/",
+      "guid": "http://localhost:8000/?p=41",
+      "date_gmt": "2026-06-01T08:00:00+00:00",
+      "modified_gmt": "2026-06-02T08:00:00+00:00",
+      "author": "The Louie",
+      "excerpt": "Sammanfattning med & tecken",
+      "content": "<p>Text</p>",
+      "categories": [],
+      "tags": [11, 12]
+    }
+  ],
+  "urls": [
+    "http://localhost:8000/",
+    "http://localhost:8000/nyare-inlagg/",
+    "http://localhost:8000/aldre-inlagg/",
+    "http://localhost:8000/tag/kod/"
+  ]
+}

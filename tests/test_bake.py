@@ -21,7 +21,7 @@ def mirror(cfg: Config) -> Config:
     """A small mirror shaped like what wget produces."""
     site = cfg.site_dir
     (site / "assets/js").mkdir(parents=True)
-    (site / "wp-includes/js/jquery").mkdir(parents=True)
+    (site / "inc/js/jquery").mkdir(parents=True)
     (site / "post-a").mkdir()
     (site / "post-b").mkdir()
 
@@ -29,7 +29,7 @@ def mirror(cfg: Config) -> Config:
     (site / "assets/js/app.js").write_text(
         'function greet(namn) { var msg = "hej " + namn; return msg; }\n'
     )
-    (site / "wp-includes/js/jquery/jquery.min.js").write_text("var jq=1;\n")
+    (site / "inc/js/jquery/jquery.min.js").write_text("var jq=1;\n")
 
     page = (
         '<!DOCTYPE html><html><head><meta charset="UTF-8">'
@@ -73,7 +73,7 @@ def test_js_minified_once_per_file_not_per_page(mirror: Config) -> None:
     """The Node version re-minified shared JS from every referencing page."""
     stats = bake_tree(mirror)
     assert stats.js_minified == 1  # app.js only; jquery.min.js is excluded
-    assert "wp-includes/js/jquery/jquery.min.js" in stats.js_skipped
+    assert "inc/js/jquery/jquery.min.js" in stats.js_skipped
     body = (mirror.site_dir / "assets/js/app.js").read_text()
     assert "var msg" not in body  # actually minified
     assert len(body) < 60
@@ -117,3 +117,19 @@ def test_font_awesome_empty_elements_survive(mirror: Config) -> None:
     )
     assert "fa-rss" in out
     assert "<i " in out
+
+
+def test_exclusions_are_keyed_on_post_scrub_paths(mirror: Config) -> None:
+    """bake runs after scrub has renamed wp-content and wp-includes, so an
+    exclusion written against the original paths can never match."""
+    from wp_to_static.bake import EXCLUDE_MINIFY
+
+    assert not any(e.startswith(("wp-content/", "wp-includes/")) for e in EXCLUDE_MINIFY)
+
+
+def test_stale_exclusions_are_reported(mirror: Config) -> None:
+    """An entry matching no file protects nothing, and silence made that
+    invisible for a long time."""
+    stats = bake_tree(mirror)
+    assert "content/plugins/megamenu/js/maxmegamenu.js" in stats.unmatched_exclusions
+    assert "inc/js/jquery/jquery.min.js" not in stats.unmatched_exclusions

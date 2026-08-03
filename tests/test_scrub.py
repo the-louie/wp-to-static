@@ -348,3 +348,77 @@ def test_overlay_robots_has_no_wordpress_paths(repo: Path) -> None:
     """A static site has no /wp-admin/, so disallowing it only advertises."""
     robots = (repo / "_overlay" / "robots.txt").read_text()
     assert "wp-" not in robots
+
+
+# --- resource use and decoding ----------------------------------------------
+
+
+def test_binary_files_are_never_decoded(cfg: Config) -> None:
+    """The tree is mostly uploaded images. Decoding half a gigabyte of them to
+    decide they are not markup would cost the whole build."""
+    from wp_to_static.scrub import TEXT_SUFFIXES, read_text_files
+
+    cfg.site_dir.mkdir(parents=True)
+    (cfg.site_dir / "a.png").write_bytes(b"\x89PNG\xff\xfe not utf-8")
+    (cfg.site_dir / "a.html").write_text("<p>hi</p>")
+    seen = [p.name for p, _ in read_text_files(cfg, TEXT_SUFFIXES)]
+    assert seen == ["a.html"]
+
+
+def test_undecodable_text_file_is_skipped_not_mangled(cfg: Config) -> None:
+    """errors='replace' would substitute U+FFFD and writing that back would
+    silently destroy the file."""
+    from wp_to_static.scrub import TEXT_SUFFIXES, read_text_files
+
+    cfg.site_dir.mkdir(parents=True)
+    bad = cfg.site_dir / "bad.css"
+    bad.write_bytes(b".a{content:'\xff\xfe'}")
+    before = bad.read_bytes()
+    assert [p for p, _ in read_text_files(cfg, TEXT_SUFFIXES)] == []
+    scrub_tree(cfg)
+    assert bad.read_bytes() == before
+
+
+# --- guard behaviour --------------------------------------------------------
+
+
+def test_collision_aborts_before_touching_anything(cfg: Config) -> None:
+    """Renaming anyway would leave the tree in the state the guard exists to
+    prevent, and a half applied rename is indistinguishable from a clean one."""
+    from wp_to_static.scrub import CLASS_RENAMES
+
+    target = CLASS_RENAMES[1][1]
+    cfg.site_dir.mkdir(parents=True)
+    page = cfg.site_dir / "a.html"
+    page.write_text(f'<div class="{target}header wp-header"><img src="/wp-content/x.png"></div>')
+    before = page.read_text()
+
+    stats = scrub_tree(cfg)
+    assert stats.collisions
+    assert page.read_text() == before, "nothing may be modified when a collision is found"
+    assert stats.paths_renamed == 0
+
+
+def test_allowlist_matches_by_prefix() -> None:
+    """A legitimate mention such as wp-to-static-v2 must not fail the build."""
+    from wp_to_static.scrub import CONTENT_ALLOWLIST
+
+    assert "wp-to-static-v2".startswith(CONTENT_ALLOWLIST)
+
+
+def test_fingerprints_are_not_double_counted(cfg: Config) -> None:
+    cfg.site_dir.mkdir(parents=True)
+    (cfg.site_dir / "a.html").write_text('<script src="/inc/js/wp-emoji-release.min.js">')
+    found = find_leftovers(cfg)
+    assert found.get("wp-emoji") is None, "already reported as a wp-* token"
+    assert "wp-emoji-release" in found
+
+
+def test_rename_map_has_one_implementation() -> None:
+    """check_collisions reasons about the mapping the renamer performs, so the
+    two must not be able to drift apart."""
+    from wp_to_static.scrub import _rename_tokens, mapped_name
+
+    for token in ("wp-block-image", "wp-caption", "wp-lightbox-overlay"):
+        renamed, _ = _rename_tokens(token)
+        assert renamed == mapped_name(token)

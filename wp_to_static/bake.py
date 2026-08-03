@@ -32,13 +32,21 @@ SCRIPT_SRC_RE = re.compile(
     r"""<script\s[^>]*src=["']([^"']+)["'][^>]*>\s*</script>""", re.IGNORECASE
 )
 
-# Minifying these breaks them; carried over verbatim from bake-js.js.
+# Libraries that break when minified again, usually because they are already
+# minified and rely on constructs the minifier rewrites.
+#
+# Paths are relative to the site root and must be written as they exist when
+# bake runs, which is after the scrub stage has renamed wp-content to content
+# and wp-includes to inc. An entry that matches nothing is reported rather than
+# ignored, so a list that has drifted out of date is visible instead of silently
+# protecting nothing.
 EXCLUDE_MINIFY = frozenset(
     {
-        "wp-content/plugins/megamenu/js/maxmegamenu.js",
-        "wp-includes/js/jquery/jquery.min.js",
-        "wp-includes/js/hoverIntent.min.js",
-        "wp-content/themes/eisai-child/assets/js/font-awesome.js",
+        "content/plugins/megamenu/js/maxmegamenu.js",
+        "inc/js/jquery/jquery.min.js",
+        "inc/js/hoverIntent.min.js",
+        "content/themes/louie-theme/assets/js/uikit.min.js",
+        "content/themes/louie-theme/assets/js/uikit-icons.min.js",
     }
 )
 
@@ -56,6 +64,7 @@ class BakeStats:
     js_missing: int = 0
     js_minified: int = 0
     js_skipped: list[str] = field(default_factory=list)
+    unmatched_exclusions: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         return (
@@ -79,6 +88,21 @@ def resolve_asset(url: str, cfg: Config) -> Path | None:
     return cfg.site_dir / clean.lstrip("/")
 
 
+def minify_wrapped(source: str, tag: str, **options) -> str | None:
+    """Minify a standalone stylesheet or script via minify_html.
+
+    minify_html only accepts documents, so the source is wrapped in an element
+    and unwrapped afterwards. Returns None when the wrapper did not survive,
+    which happens if the source terminates the element itself; slicing blindly
+    in that case would return malformed output.
+    """
+    open_tag, close_tag = f"<{tag}>", f"</{tag}>"
+    out = minify_html.minify(f"{open_tag}{source}{close_tag}", **options)
+    if not (out.startswith(open_tag) and out.endswith(close_tag)):
+        return None
+    return out[len(open_tag) : -len(close_tag)]
+
+
 def minify_js_source(js: str) -> str | None:
     """Minify standalone JS. Returns None when it cannot be done safely.
 
@@ -88,15 +112,13 @@ def minify_js_source(js: str) -> str | None:
     """
     if SCRIPT_CLOSE_RE.search(js):
         return None
-    wrapped = minify_html.minify(f"<script>{js}</script>", minify_js=True)
-    if not (wrapped.startswith("<script>") and wrapped.endswith("</script>")):
-        return None
-    out = wrapped[len("<script>") : -len("</script>")]
-    return out or None
+    return minify_wrapped(js, "script", minify_js=True) or None
 
 
 def minify_js_tree(cfg: Config, stats: BakeStats) -> None:
     """Minify every .js file in the mirror, exactly once."""
+    present = {p.relative_to(cfg.site_dir).as_posix() for p in cfg.site_dir.rglob("*.js")}
+    stats.unmatched_exclusions = sorted(EXCLUDE_MINIFY - present)
     for path in sorted(cfg.site_dir.rglob("*.js")):
         rel = path.relative_to(cfg.site_dir).as_posix()
         if rel in EXCLUDE_MINIFY:

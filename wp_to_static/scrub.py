@@ -21,11 +21,14 @@ about wp-to-static by name, and a blanket rename would corrupt it. Only
 from __future__ import annotations
 
 import re
-import shutil
+
 from dataclasses import dataclass, field
+from collections.abc import Iterator
 from pathlib import Path
 
+from .bake import minify_wrapped
 from .config import Config
+from .mirror import move_into
 
 # Path segments. Renaming these is the single biggest change: every image URL
 # on the site currently starts /wp-content/uploads/.
@@ -34,22 +37,22 @@ PATH_RENAMES = {
     "wp-includes": "inc",
 }
 
-# Class/id prefixes.
+# Class and id prefixes.
 #
-# NOT site-: the theme already uses site-content, site-header, site-footer and
-# site-wrapper, and wp-content would have mapped straight onto site-content.
-# Nothing broke, only because rename_paths turns /wp-content/ into /content/
-# before the class rename ever sees it -- but that is ordering luck rather than
-# safety, so the prefix is chosen to be free and check_collisions() enforces it.
+# A target prefix must be one nothing on the site already uses. If it is not,
+# a renamed identifier merges into an existing one and the two inherit each
+# other's styling, silently, and only on pages that use both. site- is unusable
+# here for that reason: the theme defines site-content, site-header, site-footer
+# and site-wrapper. check_collisions enforces this rather than trusting it.
 CLASS_RENAMES = (
     ("wp-block-", "blk-"),
     ("wp-", "ui-"),
 )
 
-# WordPress ships an emoji polyfill for browsers that no longer exist, an
-# oEmbed script that needs an endpoint we do not serve, and a speculation-rules
-# block whose JSON lists /wp-*.php and /wp-admin/* -- paths that cannot exist
-# here. All three are dead weight and all three name WordPress loudly.
+# Script and style blocks that are inert on a static site and name WordPress
+# while being so. The emoji polyfill targets browsers that no longer exist, the
+# oEmbed script needs an endpoint that is not served, and the speculation rules
+# block lists /wp-*.php and /wp-admin/* paths that cannot exist here.
 DEAD_SCRIPTS = (
     re.compile(r"<script[^>]*>[^<]*wpEmojiSettings.*?</script>", re.S | re.I),
     re.compile(r'<script[^>]*type=["\']?speculationrules["\']?[^>]*>.*?</script>', re.S | re.I),
@@ -80,6 +83,7 @@ CLASS_OR_ID_ATTR = re.compile(r"""\b(class|id)=(["']?)([^"'>\s][^"'>]*)(\2)""", 
 WP_TOKEN = re.compile(r"\bwp[-_][a-zA-Z0-9_-]+")
 
 # Content that legitimately mentions WordPress and must survive untouched.
+# Prefix matched, so wp-to-static-v2 and similar are covered too.
 CONTENT_ALLOWLIST = ("wp-to-static",)
 
 
@@ -131,12 +135,21 @@ def remove_dead_scripts(text: str) -> tuple[str, int]:
     return text, count
 
 
-def _rename_tokens(blob: str) -> tuple[str, int]:
-    count = 0
+def mapped_name(token: str) -> str:
+    """The name a wp-* identifier becomes, or the token unchanged."""
     for old, new in CLASS_RENAMES:
-        blob, n = re.subn(rf"\b{re.escape(old)}", new, blob)
-        count += n
-    return blob, count
+        if token.startswith(old):
+            return new + token[len(old) :]
+    return token
+
+
+def _rename_tokens(blob: str) -> tuple[str, int]:
+    """Apply the identifier map to every wp-* token in a fragment.
+
+    Routed through mapped_name so the renamer and check_collisions cannot
+    disagree about what a given token becomes.
+    """
+    return WP_TOKEN.subn(lambda m: mapped_name(m.group(0)), blob)
 
 
 def rename_classes(text: str) -> tuple[str, int]:
@@ -187,13 +200,10 @@ def scrub_css(text: str, *, minify: bool = True) -> str:
     text, _ = _rename_tokens(text)
     if not minify:
         return text
-    import minify_html
-
-    wrapped = minify_html.minify(f"<style>{text}</style>", minify_css=True)
-    inner = wrapped[len("<style>") : -len("</style>")]
-    # minify_html passes CSS through untouched when it cannot parse it, so only
-    # accept output that actually got smaller.
-    return inner if 0 < len(inner) < len(text) else text
+    inner = minify_wrapped(text, "style", minify_css=True)
+    # minify_html returns the input untouched when it cannot parse it, so treat
+    # output that did not shrink as a failed minify and keep the original.
+    return inner if inner and len(inner) < len(text) else text
 
 
 def scrub_xml(text: str) -> str:
@@ -207,11 +217,30 @@ def scrub_xsl(text: str) -> str:
     return re.sub(r"WordPress", "", text, flags=re.IGNORECASE)
 
 
-def mapped_name(token: str) -> str:
-    for old, new in CLASS_RENAMES:
-        if token.startswith(old):
-            return new + token[len(old) :]
-    return token
+# Every file type that can carry an identifier. .txt matters as much as the
+# markup: robots.txt is among the first files anyone fetches, and a Disallow
+# rule naming a WordPress path is as much a fingerprint as a class name.
+TEXT_SUFFIXES = (".html", ".htm", ".css", ".js", ".xml", ".xsl", ".txt")
+
+
+def read_text_files(cfg: Config, suffixes: tuple[str, ...]) -> "Iterator[tuple[Path, str]]":
+    """Yield each text file in the tree with its contents.
+
+    The suffix is tested before the file is opened. The output tree is mostly
+    uploaded images, half a gigabyte of them, and decoding those to decide they
+    are not markup costs the whole build.
+
+    Decoding is strict. errors="replace" would substitute U+FFFD for any byte it
+    could not read, and writing that back would silently destroy the file, so a
+    file that is not valid UTF-8 is skipped instead.
+    """
+    for path in sorted(cfg.site_dir.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in suffixes:
+            continue
+        try:
+            yield path, path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
 
 
 def check_collisions(cfg: Config) -> dict[str, str]:
@@ -224,13 +253,11 @@ def check_collisions(cfg: Config) -> dict[str, str]:
     """
     existing: set[str] = set()
     wp_tokens: set[str] = set()
-    prefixes = tuple(new for _, new in CLASS_RENAMES)
+    alternation = "|".join(re.escape(new) for _, new in CLASS_RENAMES)
+    target = re.compile(rf"\b((?:{alternation})[a-zA-Z0-9_-]+)")
 
-    for path in cfg.site_dir.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in (".html", ".htm", ".css"):
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        existing.update(re.findall(rf"\b((?:{'|'.join(prefixes)})[a-zA-Z0-9_-]+)", text))
+    for _, text in read_text_files(cfg, (".html", ".htm", ".css")):
+        existing.update(target.findall(text))
         wp_tokens.update(WP_TOKEN.findall(text))
 
     return {
@@ -263,13 +290,7 @@ def rename_directories(cfg: Config, stats: ScrubStats) -> None:
             continue
         target = cfg.site_dir / new
         if target.exists():
-            # Merge rather than clobber; the target may already hold overlay
-            # files or an earlier rename.
-            for item in source.iterdir():
-                destination = target / item.name
-                if destination.exists():
-                    shutil.rmtree(destination) if destination.is_dir() else destination.unlink()
-                shutil.move(str(item), str(destination))
+            move_into(source, target)
             source.rmdir()
         else:
             source.rename(target)
@@ -284,20 +305,16 @@ def find_leftovers(cfg: Config) -> dict[str, int]:
     longer defines, and the page would quietly lose its styling.
     """
     found: dict[str, int] = {}
-    for path in cfg.site_dir.rglob("*"):
-        # .txt included because robots.txt shipped a Disallow: /wp-admin/ for a
-        # path a static site cannot have -- a fingerprint in one of the first
-        # files anyone fetches, and one an html-only scan walked straight past.
-        if not path.is_file() or path.suffix.lower() not in (
-            ".html", ".htm", ".css", ".js", ".xml", ".xsl", ".txt",
-        ):
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
+    for _, text in read_text_files(cfg, TEXT_SUFFIXES):
         for token in WP_TOKEN.findall(text):
-            if token in CONTENT_ALLOWLIST:
+            if token.startswith(CONTENT_ALLOWLIST):
                 continue
             found[token] = found.get(token, 0) + 1
         for mark in FOREIGN_FINGERPRINTS:
+            # Only those a wp-* token would not already have reported, so a
+            # single occurrence is not counted twice.
+            if WP_TOKEN.fullmatch(mark):
+                continue
             n = text.count(mark)
             if n:
                 found[mark] = found.get(mark, 0) + n
@@ -308,12 +325,14 @@ def scrub_tree(cfg: Config) -> ScrubStats:
     """Scrub every generated file, then rename the directories to match."""
     stats = ScrubStats()
     stats.collisions = check_collisions(cfg)
+    if stats.collisions:
+        # Returning before any file is touched. Renaming anyway would leave the
+        # tree in exactly the state the guard exists to prevent, and the caller
+        # cannot tell a half applied rename from a clean one.
+        return stats
 
-    for path in sorted(cfg.site_dir.rglob("*")):
-        if not path.is_file():
-            continue
+    for path, text in read_text_files(cfg, TEXT_SUFFIXES):
         suffix = path.suffix.lower()
-        text = path.read_text(encoding="utf-8", errors="replace")
 
         if suffix in (".html", ".htm"):
             new, file_stats = scrub_html(text)

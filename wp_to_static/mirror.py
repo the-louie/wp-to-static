@@ -37,9 +37,10 @@ SITEMAP_PROVIDERS = (
     "taxonomies-post_tag",
 )
 
-# The emoji polyfill used to be fetched here. The scrub stage removes every
-# script tag that referenced it, so downloading it only produced an orphan file
-# that shipped WordPress strings in an otherwise clean tree.
+# Assets the crawl cannot discover, because nothing links to them in a form
+# wget follows. The emoji polyfill is deliberately absent: the scrub stage
+# removes every script tag that would reference it, so fetching it would only
+# add an unreachable file carrying WordPress strings.
 EXTRA_ASSETS = (
     (
         "wp-content/themes/Eisai/assets/js/html5.min.js",
@@ -124,18 +125,29 @@ def crawl(cfg: Config) -> None:
     _flatten_theme_assets(cfg)
 
 
+def move_into(source: Path, target: Path) -> None:
+    """Move everything from one directory into another, replacing conflicts.
+
+    The target may already exist and hold files, so this merges rather than
+    replacing wholesale. Entries already present in the target are removed
+    first, because shutil.move refuses to overwrite a directory.
+    """
+    target.mkdir(parents=True, exist_ok=True)
+    for item in source.iterdir():
+        destination = target / item.name
+        if destination.is_dir():
+            shutil.rmtree(destination)
+        elif destination.exists():
+            destination.unlink()
+        shutil.move(str(item), str(destination))
+
+
 def _flatten_theme_assets(cfg: Config) -> None:
     """Move the child theme's assets to /assets/, matching the URL rewrite."""
     source = cfg.site_dir / THEME_ASSET_PREFIX.strip("/")
     if not source.is_dir():
         return
-    target = cfg.site_dir / PUBLIC_ASSET_PREFIX.strip("/")
-    target.mkdir(parents=True, exist_ok=True)
-    for item in source.iterdir():
-        destination = target / item.name
-        if destination.exists():
-            shutil.rmtree(destination) if destination.is_dir() else destination.unlink()
-        shutil.move(str(item), str(destination))
+    move_into(source, cfg.site_dir / PUBLIC_ASSET_PREFIX.strip("/"))
 
 
 def fetch_sitemaps(cfg: Config) -> list[str]:

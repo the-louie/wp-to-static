@@ -225,6 +225,11 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
         log("baking" + ("" if cfg.minify else " (minification disabled)"))
         stats = bake.bake_tree(cfg)
         log(stats.summary())
+        if stats.unmatched_exclusions:
+            report.warn(
+                "these bake exclusions match no file, so they protect nothing: "
+                + ", ".join(stats.unmatched_exclusions)
+            )
         if stats.css_missing or stats.js_missing:
             report.warn(
                 f"{stats.css_missing} css and {stats.js_missing} js references "

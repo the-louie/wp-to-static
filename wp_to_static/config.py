@@ -1,10 +1,8 @@
 """Build configuration.
 
-Everything that used to be a bare exported string in mkstatic.sh lives here as
-one frozen object, so a stage can never disagree with another about where the
-site tree is or what the public domain looks like. The old script had two
-different spellings of the mirror directory ($OUTPUTDIR and a hardcoded
-localhost:8000) plus an $LOCAL_DOMAIN that was never assigned at all.
+One frozen object holds every path and name the stages share, so no two stages
+can disagree about where the site tree is or what the public domain is. Anything
+a stage needs to know about the build belongs here rather than in the stage.
 """
 
 from __future__ import annotations

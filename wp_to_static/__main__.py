@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
+import urllib.request
 from dataclasses import replace
 from pathlib import Path
 
@@ -105,10 +106,10 @@ def stage_feeds(
         )
         return generated.term_links
 
-    def fetch(url: str) -> str:
-        import urllib.request
+    context = wpapi.tls_context(cfg)
 
-        with urllib.request.urlopen(url, timeout=30) as response:
+    def fetch(url: str) -> str:
+        with urllib.request.urlopen(url, timeout=30, context=context) as response:
             return response.read().decode("utf-8", errors="replace")
 
     sample = None if args.crosscheck_all else 5

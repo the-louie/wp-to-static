@@ -10,8 +10,10 @@ loudly and is not the supported path.
 from __future__ import annotations
 
 import json
+import ssl
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -40,6 +42,9 @@ class Term:
     feed_link: str
     atom_link: str
     description: str = ""
+    # Authoritative membership, resolved term -> posts. Empty only when the
+    # source could not supply it.
+    post_ids: tuple[int, ...] = ()
 
     @property
     def is_tag(self) -> bool:
@@ -90,7 +95,18 @@ class BuildData:
     from_plugin: bool = True
 
     def posts_for(self, term: Term) -> list[Post]:
-        """Posts carrying this term, newest first."""
+        """Posts carrying this term, newest first.
+
+        Prefers the term -> posts membership supplied by the source. A post's
+        own term list cannot be trusted: themes and plugins filter
+        get_the_terms/wp_get_object_terms to hide internal tags like _featured
+        from listings, which also strips them from the post's term list and
+        from the REST "tags" field, while the term archive and its feed still
+        include the post.
+        """
+        if term.post_ids:
+            wanted = set(term.post_ids)
+            return [p for p in self.posts if p.id in wanted]
         return [p for p in self.posts if p.in_term(term)]
 
 
@@ -98,10 +114,24 @@ def _parse_time(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def _get(url: str, headers: dict[str, str] | None = None) -> tuple[Any, dict[str, str]]:
+def tls_context(cfg: Config) -> ssl.SSLContext | None:
+    """None means "use the default, verified context"."""
+    if cfg.verify_tls:
+        return None
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
+def _get(
+    url: str,
+    headers: dict[str, str] | None = None,
+    context: ssl.SSLContext | None = None,
+) -> tuple[Any, dict[str, str]]:
     request = urllib.request.Request(url, headers=headers or {})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=TIMEOUT, context=context) as response:
             body = json.loads(response.read().decode("utf-8"))
             return body, dict(response.headers)
     except urllib.error.HTTPError as exc:
@@ -137,6 +167,7 @@ def parse_build_data(payload: dict[str, Any], *, from_plugin: bool = True) -> Bu
             link=t["link"],
             feed_link=t["feed_link"],
             atom_link=t["atom_link"],
+            post_ids=tuple(int(x) for x in t.get("post_ids", ())),
         )
         for t in payload.get("terms", [])
     ]
@@ -176,7 +207,11 @@ def fetch_build_data(cfg: Config) -> BuildData:
     if cfg.api_secret:
         url = f"{cfg.local_origin}{BUILD_DATA_PATH}"
         try:
-            payload, _ = _get(url, {"X-Static-Build-Secret": cfg.api_secret})
+            payload, _ = _get(
+                url,
+                {"X-Static-Build-Secret": cfg.api_secret},
+                tls_context(cfg),
+            )
             return parse_build_data(payload)
         except ApiError as exc:
             print(f"WARNING: build-data endpoint unavailable ({exc})", file=sys.stderr)
@@ -188,13 +223,16 @@ def fetch_build_data(cfg: Config) -> BuildData:
     return _fetch_via_rest(cfg)
 
 
-def _rest_collection(cfg: Config, name: str) -> list[dict[str, Any]]:
+def _rest_collection(
+    cfg: Config, name: str, params: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     """Page through a REST collection using X-WP-TotalPages."""
     items: list[dict[str, Any]] = []
     page = 1
     while True:
-        url = f"{cfg.local_origin}{REST_PATH}/{name}?per_page=100&page={page}"
-        body, headers = _get(url)
+        query = {"per_page": "100", "page": str(page), **(params or {})}
+        url = f"{cfg.local_origin}{REST_PATH}/{name}?{urllib.parse.urlencode(query)}"
+        body, headers = _get(url, context=tls_context(cfg))
         items.extend(body)
         total = int(headers.get("X-WP-TotalPages", "1") or 1)
         if page >= total:
@@ -212,16 +250,26 @@ def _fetch_via_rest(cfg: Config) -> BuildData:
     )
 
     terms: list[Term] = []
-    for name, taxonomy, base in (
-        ("categories", "category", cfg.category_base),
-        ("tags", "post_tag", cfg.tag_base),
+    for name, taxonomy, base, filter_param in (
+        ("categories", "category", cfg.category_base, "categories"),
+        ("tags", "post_tag", cfg.tag_base, "tags"),
     ):
         for raw in _rest_collection(cfg, name):
             link = raw.get("link") or f"{cfg.local_origin}/{base}/{raw['slug']}/"
+            term_id = int(raw["id"])
+            # One request per term, because a post's own "tags" field is
+            # filterable and unreliable while the term filter is not. See
+            # BuildData.posts_for.
+            post_ids = tuple(
+                int(p["id"])
+                for p in _rest_collection(
+                    cfg, "posts", {filter_param: str(term_id), "_fields": "id"}
+                )
+            )
             terms.append(
                 Term(
                     taxonomy=taxonomy,
-                    id=int(raw["id"]),
+                    id=term_id,
                     slug=raw["slug"],
                     name=raw.get("name", raw["slug"]),
                     description=raw.get("description", ""),
@@ -230,6 +278,7 @@ def _fetch_via_rest(cfg: Config) -> BuildData:
                     # Reconstructed. This is the assumption the plugin removes.
                     feed_link=f"{link.rstrip('/')}/feed/",
                     atom_link=f"{link.rstrip('/')}/feed/atom/",
+                    post_ids=post_ids,
                 )
             )
 
@@ -251,10 +300,18 @@ def _fetch_via_rest(cfg: Config) -> BuildData:
             )
         )
 
+    # The REST index carries the site name and description. Without them every
+    # feed ships with an empty <title>, which readers display as a blank
+    # subscription.
+    try:
+        index, _ = _get(f"{cfg.local_origin}/wp-json/", context=tls_context(cfg))
+    except ApiError:
+        index = {}
+
     site = Site(
-        name="",
-        description="",
-        url=f"{cfg.local_origin}/",
+        name=index.get("name", ""),
+        description=index.get("description", ""),
+        url=index.get("home", f"{cfg.local_origin}") + "/",
         language="en",
         category_base=cfg.category_base,
         tag_base=cfg.tag_base,

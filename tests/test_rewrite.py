@@ -175,3 +175,40 @@ def test_rewrites_are_idempotent(cfg: Config) -> None:
     once = rewrite_html(WP_PAGE, cfg, feed_links=site_feed_links(cfg))
     twice = rewrite_html(once, cfg, feed_links=site_feed_links(cfg))
     assert once == twice
+
+
+# --- stored data from a host WordPress no longer runs on ---------------------
+
+
+def test_legacy_host_in_guid_is_normalised(cfg: Config) -> None:
+    """WordPress stores a post's guid at creation and never updates it, so a
+    site that has moved hosts still emits the old one. Shipping it verbatim
+    would leak the build host and change identifiers subscribers already hold."""
+    moved = Config(
+        repo_dir=cfg.repo_dir,
+        base_dir=cfg.base_dir,
+        local_url="louie_se.i.louie.se",
+        local_scheme="https",
+    )
+    doc = (
+        "<rss><channel><item>"
+        "<link>https://louie_se.i.louie.se/projects/x/</link>"
+        '<guid isPermaLink="false">http://localhost:8000/?p=808</guid>'
+        "</item></channel></rss>"
+    )
+    out = rewrite_xml(doc, moved)
+    assert "<link>https://louie.se/projects/x/</link>" in out
+    assert '<guid isPermaLink="false">https://louie.se/?p=808</guid>' in out
+    assert "localhost" not in out
+    assert "louie_se.i" not in out
+
+
+def test_legacy_host_in_html_is_normalised(cfg: Config) -> None:
+    moved = Config(
+        repo_dir=cfg.repo_dir,
+        base_dir=cfg.base_dir,
+        local_url="louie_se.i.louie.se",
+        local_scheme="https",
+    )
+    out = rewrite_html('<a href="http://localhost:8000/gammalt/">x</a>', moved)
+    assert 'href="/gammalt/"' in out

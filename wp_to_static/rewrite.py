@@ -58,19 +58,23 @@ class FeedLink:
         )
 
 
+def _hosts_alternation(cfg: Config) -> str:
+    return "|".join(re.escape(host) for host in cfg.source_hosts)
+
+
 def _local_url_re(cfg: Config) -> re.Pattern[str]:
-    """Matches http(s)://localhost:8000 with an optional trailing slash."""
-    return re.compile(rf"https?://{re.escape(cfg.local_url)}/?")
+    """Matches http(s)://<any source host> with an optional trailing slash."""
+    return re.compile(rf"https?://(?:{_hosts_alternation(cfg)})/?")
 
 
 def _escaped_local_url_re(cfg: Config) -> re.Pattern[str]:
     r"""Matches the JSON-escaped form: http:\/\/localhost:8000\/"""
-    return re.compile(rf"https?:\\/\\/{re.escape(cfg.local_url)}\\/")
+    return re.compile(rf"https?:\\/\\/(?:{_hosts_alternation(cfg)})\\/")
 
 
 def rewrite_html(text: str, cfg: Config, feed_links: list[FeedLink] | None = None) -> str:
     """Apply the full HTML rewrite chain to one document."""
-    local = re.escape(cfg.local_url)
+    local = f"(?:{_hosts_alternation(cfg)})"
     public = f"{cfg.public_origin}/"
 
     # 1. Tags that must keep an absolute URL. Line-anchored like the sed

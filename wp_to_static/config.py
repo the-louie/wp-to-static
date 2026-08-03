@@ -30,11 +30,28 @@ PUBLIC_ASSET_PREFIX = "/assets/"
 class Config:
     repo_dir: Path
     base_dir: Path
+    # Host (and port, if any) of the build instance. This is also the directory
+    # name wget gives the mirror, and what the URL rewrites match on, so it must
+    # not carry a scheme.
     local_url: str = DEFAULT_LOCAL_URL
+    local_scheme: str = "http"
     domain: str = DEFAULT_DOMAIN
     upload_target: str = DEFAULT_UPLOAD_TARGET
     ssh_key: str = DEFAULT_SSH_KEY
     minify: bool = True
+    # Opt-out of TLS verification when talking to the build instance. Needed
+    # only for internal hosts whose certificate does not strictly validate --
+    # e.g. an underscore in the hostname, which RFC 1123 disallows, so a
+    # wildcard certificate will not match it under OpenSSL's checker even
+    # though curl and wget accept it. Never appropriate for a public host.
+    verify_tls: bool = True
+    # Hosts WordPress may still have baked into stored data, which must be
+    # normalised to the public domain alongside the current build host.
+    # WordPress stores a post's guid at creation time and never updates it, so
+    # a site that has moved hosts carries the old one forever. Shipping that
+    # verbatim would leak the build host into every feed item and change the
+    # identifiers subscribers already hold.
+    legacy_hosts: tuple[str, ...] = ("localhost:8000",)
     # Taxonomy bases. Defaults match WordPress's own defaults; the mu-plugin
     # reports the real values so a Settings -> Permalinks change is picked up.
     tag_base: str = "tag"
@@ -53,8 +70,8 @@ class Config:
 
     @property
     def local_origin(self) -> str:
-        """Origin of the local WordPress, no trailing slash."""
-        return f"http://{self.local_url}"
+        """Origin of the build WordPress, no trailing slash."""
+        return f"{self.local_scheme}://{self.local_url}"
 
     @property
     def public_origin(self) -> str:
@@ -65,16 +82,30 @@ class Config:
         """Absolute public URL for a site-root-relative path."""
         return f"{self.public_origin}/{path.lstrip('/')}"
 
+    @property
+    def source_hosts(self) -> tuple[str, ...]:
+        """Every host that may appear in crawled or stored WordPress data."""
+        return (self.local_url, *(h for h in self.legacy_hosts if h != self.local_url))
+
     @classmethod
     def from_env(cls, repo_dir: Path | None = None) -> "Config":
         repo = Path(repo_dir or os.environ.get("WPTS_REPO", ".")).resolve()
         base = Path(os.environ.get("WPTS_OUTPUT", repo / "output"))
+        # Accept a full origin in WPTS_LOCAL_URL and split it, so callers can
+        # paste the URL they actually browse to.
+        raw = os.environ.get("WPTS_LOCAL_URL", DEFAULT_LOCAL_URL)
+        scheme = os.environ.get("WPTS_LOCAL_SCHEME", "http")
+        if "://" in raw:
+            scheme, raw = raw.split("://", 1)
+        raw = raw.rstrip("/")
         return cls(
             repo_dir=repo,
             base_dir=base,
-            local_url=os.environ.get("WPTS_LOCAL_URL", DEFAULT_LOCAL_URL),
+            local_url=raw,
+            local_scheme=scheme,
             domain=os.environ.get("WPTS_DOMAIN", DEFAULT_DOMAIN),
             upload_target=os.environ.get("WPTS_UPLOAD", DEFAULT_UPLOAD_TARGET),
             ssh_key=os.environ.get("WPTS_SSH_KEY", DEFAULT_SSH_KEY),
             api_secret=os.environ.get("WPTS_API_SECRET"),
+            verify_tls=os.environ.get("WPTS_INSECURE", "") == "",
         )

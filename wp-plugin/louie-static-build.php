@@ -79,6 +79,35 @@ function louie_static_site_data() {
 	);
 }
 
+/**
+ * Published post IDs carrying a term, newest first.
+ *
+ * Deliberately a term -> posts query rather than reading each post's term
+ * list: see the note at the call site.
+ */
+function louie_static_term_post_ids( $term_id, $taxonomy ) {
+	$ids = get_posts(
+		array(
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'posts_per_page'      => -1,
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+			'ignore_sticky_posts' => true,
+			'fields'              => 'ids',
+			'tax_query'           => array(
+				array(
+					'taxonomy'         => $taxonomy,
+					'field'            => 'term_id',
+					'terms'            => $term_id,
+					'include_children' => false,
+				),
+			),
+		)
+	);
+	return array_map( 'intval', $ids );
+}
+
 function louie_static_terms_data() {
 	$out = array();
 	foreach ( array( 'category', 'post_tag' ) as $taxonomy ) {
@@ -107,6 +136,14 @@ function louie_static_terms_data() {
 				'link'        => $link,
 				'feed_link'   => get_term_feed_link( $term->term_id, $taxonomy, 'rss2' ),
 				'atom_link'   => get_term_feed_link( $term->term_id, $taxonomy, 'atom' ),
+				// Membership is resolved term -> posts, never post -> terms.
+				// Themes and plugins routinely filter get_the_terms /
+				// wp_get_object_terms to hide internal tags such as _featured
+				// from listings, and that filter also strips them from a post's
+				// own term list (and from the REST "tags" field). Querying by
+				// term is the same path the feed templates take, so this agrees
+				// with WordPress's own feeds by construction.
+				'post_ids'    => louie_static_term_post_ids( $term->term_id, $taxonomy ),
 			);
 		}
 	}

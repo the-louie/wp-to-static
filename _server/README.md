@@ -3,36 +3,80 @@
 These files are **not** part of the generated site. They live outside
 `_overlay/` on purpose, so they can never be rsynced into the document root.
 
-That is the whole reason this directory exists. `_overlay/_headers` used to hold
-this configuration in Cloudflare Pages syntax, on a host running nginx. It did
+That is why this directory exists. `_overlay/_headers` used to hold this
+configuration in Cloudflare Pages syntax, on a host running nginx. It did
 nothing, and because it sat in `_overlay/` it was published at
 `https://louie.se/_headers` for anyone to read.
 
-## Deploying
+## What these are
 
-Two things must happen together, in one change:
+| File | Purpose |
+|---|---|
+| `louie-feeds.conf` | feed Content-Types, `index.xml` directory index, feed-only CORS |
+| `louie-security-headers.conf` | the security headers, included from both places below |
 
-1. Install the config:
-   ```
-   cp louie-security-headers.conf /etc/nginx/snippets/
-   cp louie.se.nginx.conf         /etc/nginx/sites-available/louie.se
-   nginx -t && systemctl reload nginx
-   ```
-2. Remove the stale published copy of the old file. The upload rsync has no
-   `--delete`, so removing it from the repo does not unpublish it:
-   ```
-   rm /mnt/storage/louie.se/www2/_headers
-   ```
+**Both are snippets to include inside your existing `server { }` block.**
+Neither is a server block. They set no `listen`, `ssl_*` or `server_name`, so
+they cannot clobber TLS, user-agent filtering, `.well-known` handling, or
+anything else already configured.
 
-Ship the corrected feed `Content-Type`s and `nosniff` at the same time. Feeds
-are currently served as `text/xml` and readers sniff their way to the right
-answer; enabling `nosniff` without the correct types would break every
-browser-based reader, and the types without `nosniff` change nothing.
+## Installing
+
+```sh
+sudo cp louie-feeds.conf louie-security-headers.conf /etc/nginx/snippets/
+```
+
+Then, inside the existing `server { }` block for louie.se:
+
+```nginx
+server {
+    # ...everything already there, untouched...
+
+    include /etc/nginx/snippets/louie-security-headers.conf;
+    include /etc/nginx/snippets/louie-feeds.conf;
+}
+```
+
+Back up first, then check and reload:
+
+```sh
+sudo cp /etc/nginx/sites-available/louie.se ~/louie.se.nginx.bak
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`nginx -t` validates the whole config before anything is applied, so a mistake
+fails there rather than taking the site down.
+
+Also remove the stale file the old overlay published. The upload has no
+`--delete`, so deleting it from the repo did not unpublish it:
+
+```sh
+rm /mnt/storage/louie.se/www2/_headers
+```
+
+## The one trap
+
+nginx's `add_header` inheritance is all-or-nothing per level: a `location` that
+sets **any** header discards **every** `add_header` inherited from `server`.
+The feed locations set CORS, so without care they would silently lose `nosniff`
+and the CSP — on exactly the responses whose Content-Type we just started
+caring about.
+
+That is why the security headers are a separate snippet, included at server
+level *and* inside each feed location. Do not "simplify" it by including it
+once at the top.
+
+## Why it must go out as one change
+
+Feeds are currently served as `text/xml` with no `nosniff`, and readers sniff
+their way to the right answer. Turning on `nosniff` without the corrected
+Content-Types would break every browser-based reader; the Content-Types without
+`nosniff` change nothing. Ship both together.
 
 ## Verifying
 
-```
-curl -sI https://louie.se/tag/<slug>/feed.xml
+```sh
+curl -sI https://louie.se/tag/lora/feed.xml
 ```
 
 must show **all three** together:
@@ -41,13 +85,18 @@ must show **all three** together:
 - `x-content-type-options: nosniff`
 - `content-security-policy: ...`
 
-All three appearing is what proves the `add_header` inheritance trap was
-avoided: a `location` block that sets any header drops every `add_header`
-inherited from `server`, which is why the security headers are `include`d in
-both places rather than written once at the top.
+All three appearing is what proves the `add_header` trap was avoided.
 
-Repeat for `atom.xml`, `/feed/`, `/feed/atom/`, and the site-level `/feed.xml`.
-Then check `curl -sI https://louie.se/_headers` returns 404.
+Then confirm the legacy WordPress URLs, which currently return **403** because
+nginx will not serve `index.xml` as a directory index:
+
+```sh
+for u in /feed/ /feed/atom/ /tag/lora/feed/ /tag/lora/feed/atom/; do
+  curl -s -o /dev/null -w "$u -> %{http_code} %{content_type}\n" "https://louie.se$u"
+done
+```
+
+All four should become 200. And `curl -sI https://louie.se/_headers` should 404.
 
 Finally, subscribe to one tag feed in a real reader. Readers are stricter than
 any of the above.

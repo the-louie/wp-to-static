@@ -14,9 +14,17 @@ class PublishError(RuntimeError):
 def upload(cfg: Config, *, dry_run: bool = False) -> None:
     """rsync the site tree to the server.
 
-    Deliberately without --delete: adding it would also remove anything placed
-    on the target by hand, ACME challenges in particular. Stale files are a
-    known consequence, tracked separately.
+    Deliberately without --delete, and do not add it without an audit.
+
+    The document root holds hand-placed content that this generator does not
+    produce and knows nothing about -- /dumpster/ contains standalone JS pages
+    (e.g. /dumpster/misc/jpeg-distort/) that posts link to, and ACME challenges
+    live under /.well-known/. --delete would destroy all of it on the next
+    build.
+
+    The cost of leaving it out is that stale files live forever: a renamed post
+    keeps its old directory, which is why some old URLs still resolve on the
+    live site even though nothing generates them any more.
     """
     command = [
         "rsync",

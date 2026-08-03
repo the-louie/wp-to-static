@@ -94,6 +94,20 @@ Builds fall back to the stock REST API without it, but then feed URLs are
 reconstructed by string concatenation — it warns, and it is not the supported
 path.
 
+## Hand-placed content on the server
+
+The document root is not generated wholesale. `/dumpster/` holds standalone JS
+pages that posts link to (`/dumpster/misc/jpeg-distort/`, for one), and ACME
+challenges live under `/.well-known/`. None of it comes from this repo.
+
+So the upload deliberately omits `--delete`, and adding it would delete all of
+that on the next build. If stale generated files ever need clearing, remove
+them by path rather than reaching for `--delete`.
+
+A side effect worth knowing: because nothing is ever removed, some URLs still
+resolve on the live site purely because an old build left the files there.
+Do not treat "it loads in a browser" as proof the generator still produces it.
+
 ## Server configuration
 
 See `_server/`. Those files are deliberately outside `_overlay/` so they are

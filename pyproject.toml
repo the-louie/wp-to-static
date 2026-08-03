@@ -1,0 +1,23 @@
+[project]
+name = "wp-to-static"
+version = "2.0.0"
+description = "Static site generator for louie.se"
+requires-python = ">=3.11"
+dependencies = [
+    "minify-html>=0.15",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "feedparser>=6",
+]
+
+[project.scripts]
+wp-to-static = "wp_to_static.__main__:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["wp_to_static*"]

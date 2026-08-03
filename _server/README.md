@@ -13,6 +13,7 @@ nothing, and because it sat in `_overlay/` it was published at
 | File | Purpose |
 |---|---|
 | `louie-feeds.conf` | feed Content-Types, `index.xml` directory index, feed-only CORS |
+| `louie-legacy-paths.conf` | keeps `/wp-content/` and `/wp-includes/` URLs alive after the scrub rename |
 | `louie-security-headers.conf` | the security headers, included from both places below |
 
 **Both are snippets to include inside your existing `server { }` block.**
@@ -20,10 +21,17 @@ Neither is a server block. They set no `listen`, `ssl_*` or `server_name`, so
 they cannot clobber TLS, user-agent filtering, `.well-known` handling, or
 anything else already configured.
 
+## Order matters
+
+`louie-legacy-paths.conf` must be installed **before** the first scrubbed build
+is uploaded. The scrub renames `/wp-content/` to `/content/`; until the aliases
+are live, every already-published image URL 404s. Config first, upload second.
+
 ## Installing
 
 ```sh
-sudo cp louie-feeds.conf louie-security-headers.conf /etc/nginx/snippets/
+sudo cp louie-feeds.conf louie-security-headers.conf louie-legacy-paths.conf \
+    /usr/local/etc/nginx/sites/louie.se/
 ```
 
 Then, inside the existing `server { }` block for louie.se:
@@ -32,16 +40,17 @@ Then, inside the existing `server { }` block for louie.se:
 server {
     # ...everything already there, untouched...
 
-    include /etc/nginx/snippets/louie-security-headers.conf;
-    include /etc/nginx/snippets/louie-feeds.conf;
+    include sites/louie.se/headers.conf;
+    include sites/louie.se/feeds.conf;
+    include sites/louie.se/legacy-paths.conf;
 }
 ```
 
 Back up first, then check and reload:
 
 ```sh
-sudo cp /etc/nginx/sites-available/louie.se ~/louie.se.nginx.bak
-sudo nginx -t && sudo systemctl reload nginx
+cp /usr/local/etc/nginx/sites/louie.se.conf ~/louie.se.conf.bak
+nginx -t && service nginx reload   # FreeBSD
 ```
 
 `nginx -t` validates the whole config before anything is applied, so a mistake

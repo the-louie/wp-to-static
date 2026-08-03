@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import argparse
 from pathlib import Path
 
@@ -135,7 +137,7 @@ def test_build_is_idempotent(mirror: Config) -> None:
 
 
 def test_no_minify_leaves_readable_html(mirror: Config) -> None:
-    cfg = Config(repo_dir=mirror.repo_dir, base_dir=mirror.base_dir, minify=False)
+    cfg = replace(mirror, minify=False)
     build(cfg, {"rewrite", "bake"}, make_args())
     out = (cfg.site_dir / "post-a/index.html").read_text()
     assert "<!DOCTYPE html>" in out

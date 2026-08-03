@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from pathlib import Path
 
 import pytest
@@ -99,7 +101,7 @@ def test_js_minify_normal_source() -> None:
 
 
 def test_no_minify_flag_preserves_markup(mirror: Config) -> None:
-    cfg = Config(repo_dir=mirror.repo_dir, base_dir=mirror.base_dir, minify=False)
+    cfg = replace(mirror, minify=False)
     stats = BakeStats()
     out = bake_html((cfg.site_dir / "post-a/index.html").read_text(), cfg, stats)
     assert "<!DOCTYPE html>" in out

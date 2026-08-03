@@ -15,8 +15,14 @@ from pathlib import Path
 
 # WordPress serves the mirror under a directory named after the host wget
 # crawled, so the site tree name is derived from local_url rather than stored.
-DEFAULT_LOCAL_URL = "localhost:8000"
+DEFAULT_LOCAL_URL = "louiese.i.louie.se"
+DEFAULT_LOCAL_SCHEME = "https"
 DEFAULT_DOMAIN = "louie.se"
+
+# Hosts WordPress has served from previously. Stored data still refers to them
+# -- a post's guid is written once at creation and never updated -- so they
+# have to be normalised to the public domain alongside the current build host.
+DEFAULT_LEGACY_HOSTS = ("localhost:8000", "louie_se.i.louie.se")
 DEFAULT_UPLOAD_TARGET = "static:/mnt/storage/louie.se/www2/"
 DEFAULT_SSH_KEY = "~/.ssh/keys/static-nokey"
 
@@ -34,7 +40,7 @@ class Config:
     # name wget gives the mirror, and what the URL rewrites match on, so it must
     # not carry a scheme.
     local_url: str = DEFAULT_LOCAL_URL
-    local_scheme: str = "http"
+    local_scheme: str = DEFAULT_LOCAL_SCHEME
     domain: str = DEFAULT_DOMAIN
     upload_target: str = DEFAULT_UPLOAD_TARGET
     ssh_key: str = DEFAULT_SSH_KEY
@@ -51,7 +57,7 @@ class Config:
     # a site that has moved hosts carries the old one forever. Shipping that
     # verbatim would leak the build host into every feed item and change the
     # identifiers subscribers already hold.
-    legacy_hosts: tuple[str, ...] = ("localhost:8000",)
+    legacy_hosts: tuple[str, ...] = DEFAULT_LEGACY_HOSTS
     # Taxonomy bases. Defaults match WordPress's own defaults; the mu-plugin
     # reports the real values so a Settings -> Permalinks change is picked up.
     tag_base: str = "tag"
@@ -94,7 +100,7 @@ class Config:
         # Accept a full origin in WPTS_LOCAL_URL and split it, so callers can
         # paste the URL they actually browse to.
         raw = os.environ.get("WPTS_LOCAL_URL", DEFAULT_LOCAL_URL)
-        scheme = os.environ.get("WPTS_LOCAL_SCHEME", "http")
+        scheme = os.environ.get("WPTS_LOCAL_SCHEME", DEFAULT_LOCAL_SCHEME)
         if "://" in raw:
             scheme, raw = raw.split("://", 1)
         raw = raw.rstrip("/")

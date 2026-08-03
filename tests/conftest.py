@@ -13,7 +13,21 @@ from wp_to_static.config import Config  # noqa: E402
 
 @pytest.fixture
 def cfg(tmp_path: Path) -> Config:
-    return Config(repo_dir=REPO, base_dir=tmp_path / "output")
+    """Config matching what the bash pipeline assumed.
+
+    Pinned rather than inherited from the defaults so the A/B against the sed
+    scripts stays a like-for-like comparison: the bash scripts only ever knew
+    one host ($LOCALURL) and have no concept of legacy hosts, so legacy_hosts
+    must be empty here. Legacy-host behaviour is tested separately, against a
+    Config that opts into it.
+    """
+    return Config(
+        repo_dir=REPO,
+        base_dir=tmp_path / "output",
+        local_url="localhost:8000",
+        local_scheme="http",
+        legacy_hosts=(),
+    )
 
 
 @pytest.fixture

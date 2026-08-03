@@ -296,3 +296,79 @@ def test_upload_omits_directory_times(mirror: Config, monkeypatch) -> None:
     publish.upload(mirror)
     assert "--omit-dir-times" in seen["cmd"]
     assert "--delete" not in seen["cmd"], "would destroy hand-placed content"
+
+
+# --- security.txt Expires ---------------------------------------------------
+
+
+def test_security_txt_gets_an_expiry_one_year_out(mirror: Config) -> None:
+    """RFC 9116 requires Expires, and a hardcoded date rots into an invalid
+    file, so it is recomputed every build."""
+    from datetime import date
+
+    apply_overlay(mirror, today=date(2026, 8, 3))
+    text = (mirror.site_dir / ".well-known/security.txt").read_text()
+    assert "Expires: 2027-08-03T00:00:00Z" in text
+    assert "Contact: h4xx0rZ@louie.se" in text
+    assert "__EXPIRES__" not in text
+
+
+def test_expiry_handles_leap_day(mirror: Config) -> None:
+    """29 February has no counterpart next year."""
+    from datetime import date
+
+    from wp_to_static.overlay import security_txt_expiry
+
+    assert security_txt_expiry(date(2028, 2, 29)) == "2029-02-28T00:00:00Z"
+    assert security_txt_expiry(date(2027, 3, 1)) == "2028-03-01T00:00:00Z"
+
+
+def test_expiry_is_always_in_the_future(mirror: Config) -> None:
+    from datetime import date
+
+    from wp_to_static.overlay import security_txt_expiry
+
+    today = date.today()
+    assert security_txt_expiry() > today.isoformat()
+
+
+def test_overlay_leaves_no_unsubstituted_placeholders(mirror: Config) -> None:
+    """Every __PLACEHOLDER__ in the overlay source must be substituted; one
+    that isn't would ship literally."""
+    import re
+
+    from wp_to_static.overlay import substitutions
+
+    known = set(substitutions(mirror))
+    apply_overlay(mirror)
+    for name in ("robots.txt", ".well-known/security.txt"):
+        text = (mirror.site_dir / name).read_text()
+        leftovers = set(re.findall(r"__[A-Z_]+__", text))
+        assert not leftovers, f"{name} still contains {leftovers}"
+    # and the placeholders we know about really are covered by the source files
+    assert known == {"__DOMAIN__", "__EXPIRES__"}
+
+
+def test_unsubstituted_domain_in_robots_is_caught(mirror: Config, tmp_path: Path) -> None:
+    """The guard must fire if templating ever silently stops working."""
+    import shutil as sh
+
+    from wp_to_static.overlay import OverlayError
+
+    broken = tmp_path / "overlay"
+    (broken / ".well-known").mkdir(parents=True)
+    (broken / "robots.txt").write_text("Sitemap: https://__DOMAIN__/sitemap.xml\n")
+    (broken / ".well-known/security.txt").write_text("Contact: x\n")
+    cfg = replace(mirror, repo_dir=tmp_path)
+    sh.copytree(broken, cfg.overlay_dir, dirs_exist_ok=True)
+
+    # force the substitution to be a no-op the way a renamed token would
+    import wp_to_static.overlay as ov
+
+    original = ov.substitutions
+    ov.substitutions = lambda c, t=None: {}
+    try:
+        with pytest.raises(OverlayError, match="unsubstituted"):
+            apply_overlay(cfg)
+    finally:
+        ov.substitutions = original

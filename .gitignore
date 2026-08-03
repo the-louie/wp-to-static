@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache/
 .env
 .wpts-state.json
+_upload_log_*.log

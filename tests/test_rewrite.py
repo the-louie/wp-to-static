@@ -250,3 +250,28 @@ def test_no_host_leaks_from_a_realistic_head(cfg: Config) -> None:
     out = rewrite_html(f"<head>{OEMBED_HEAD}</head>", cfg)
     assert "localhost" not in out
     assert "%3A%2F%2F" not in out  # nothing encoded left behind either
+
+
+def test_dead_endpoint_links_removed(cfg: Config) -> None:
+    """wp-json and xmlrpc.php do not exist in a static mirror: the crawl
+    excludes one and cleanup deletes the other."""
+    doc = (
+        '<head><link rel="https://api.w.org/" href="http://localhost:8000/wp-json/" />'
+        '<link rel="EditURI" type="application/rsd+xml" title="RSD" '
+        'href="http://localhost:8000/xmlrpc.php?rsd" /></head>'
+    )
+    out = rewrite_html(doc, cfg)
+    assert "wp-json" not in out
+    assert "xmlrpc" not in out
+
+
+def test_deep_rest_links_removed(cfg: Config) -> None:
+    """WordPress also emits per-object REST links; an earlier pattern only
+    matched hrefs ending at /wp-json/ and left these behind."""
+    doc = (
+        '<link rel="alternate" type="application/json" '
+        'href="http://localhost:8000/wp-json/wp/v2/posts/808" />'
+        '<link rel="alternate" type="application/json" '
+        'href="http://localhost:8000/wp-json/wp/v2/tags/23" />'
+    )
+    assert "wp-json" not in rewrite_html(doc, cfg)

@@ -25,6 +25,7 @@ STAGES = (
     "cleanup",
     "feeds",
     "rewrite",
+    "assets",
     "overlay",
     "bake",
     "upload",
@@ -155,6 +156,20 @@ def build(cfg: Config, stages: set[str], args: argparse.Namespace) -> int:
 
     if "rewrite" in stages:
         stage_rewrite(cfg, term_links)
+
+    # After rewriting, every local reference is root-relative, so anything the
+    # crawl could not reach can be re-requested from the current origin. Must
+    # run before bake, which needs the files present to inline them.
+    if "assets" in stages:
+        fetched, still_missing = mirror.fetch_missing_assets(cfg)
+        log(f"assets: fetched {fetched} referenced files the crawl missed")
+        if still_missing:
+            print(
+                f"WARNING: {len(still_missing)} referenced files could not be "
+                f"fetched: {', '.join(still_missing[:5])}"
+                + (" ..." if len(still_missing) > 5 else ""),
+                file=sys.stderr,
+            )
 
     if "overlay" in stages:
         copied = overlay.apply_overlay(cfg)

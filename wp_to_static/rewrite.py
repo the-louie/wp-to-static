@@ -33,6 +33,15 @@ OEMBED_LINK_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The REST root (rel="https://api.w.org/") and the RSD link (rel="EditURI",
+# pointing at xmlrpc.php). Both are dead in a static site -- wp-json is
+# excluded from the crawl and the php files are deleted -- so they were 341
+# broken references per build.
+DEAD_ENDPOINT_LINK_RE = re.compile(
+    r"<link[^>]*href=['\"][^'\"]*(?:/wp-json|xmlrpc\.php)[^'\"]*['\"][^>]*>",
+    re.IGNORECASE,
+)
+
 # Feed autodiscovery links WordPress emits: site, comments, per-post comments,
 # category, tag and search feeds. All are stripped and replaced with the feeds
 # we actually publish.
@@ -123,6 +132,7 @@ def rewrite_html(text: str, cfg: Config, feed_links: list[FeedLink] | None = Non
 
     text = SHORTLINK_RE.sub("", text)
     text = OEMBED_LINK_RE.sub("", text)
+    text = DEAD_ENDPOINT_LINK_RE.sub("", text)
     text = INDEX_HTML_RE.sub("/", text)
     text = text.replace(THEME_ASSET_PREFIX, PUBLIC_ASSET_PREFIX)
 

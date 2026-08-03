@@ -151,3 +151,22 @@ def test_overlay_never_ships_a_cloudflare_headers_file(mirror: Config) -> None:
     apply_overlay(mirror)
     assert not (mirror.site_dir / "_headers").exists()
     assert not (mirror.repo_dir / "_overlay" / "_headers").exists()
+
+
+def test_fetch_missing_assets_skips_unfetchable_and_present(mirror: Config) -> None:
+    """Content can name assets the crawl never reached -- WordPress bakes
+    absolute URLs into posts, so a host move leaves them off-host. Endpoints
+    that cannot exist as files must not be requested."""
+    from wp_to_static.mirror import LOCAL_REF_RE, UNFETCHABLE_PREFIXES
+
+    page = (
+        '<a href="/wp-json/">a</a><a href="/xmlrpc.php?rsd">b</a>'
+        '<img src="/assets/theme.css"><img src="//cdn.example.com/x.png">'
+    )
+    refs = [r for r in LOCAL_REF_RE.findall(page)]
+    keep = [
+        r for r in refs
+        if not r.startswith("//") and not r.startswith(UNFETCHABLE_PREFIXES)
+    ]
+    assert keep == ["/assets/theme.css"]          # the only fetchable candidate
+    assert (mirror.site_dir / "assets/theme.css").exists()  # ...and it is present

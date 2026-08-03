@@ -12,9 +12,11 @@ index.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -170,6 +172,57 @@ def write_sitemap_index(cfg: Config, members: list[str]) -> None:
         f"{entries}</sitemapindex>\n"
     )
     (cfg.site_dir / "sitemap.xml").write_text(doc, encoding="utf-8")
+
+
+LOCAL_REF_RE = re.compile(r'(?:href|src)=["\']?(/[^"\'\s>]+)')
+
+# Referenced paths that legitimately do not exist as files in a static mirror.
+UNFETCHABLE_PREFIXES = ("/wp-json", "/xmlrpc.php", "/wp-admin", "/wp-login")
+
+
+def fetch_missing_assets(cfg: Config, *, workers: int = 8) -> tuple[int, list[str]]:
+    """Fetch assets referenced by the built pages but absent from the mirror.
+
+    The crawl only follows URLs on the host it is crawling. WordPress bakes
+    absolute URLs into post content at authoring time and never rewrites them,
+    so a site that has changed hosts has content pointing at the old one --
+    wget treats those as off-host and skips them, and the URL rewrite then
+    produces a root-relative link to a file that was never downloaded. Here the
+    paths are already rewritten, so re-requesting them from the current origin
+    resolves it regardless of which host the content named.
+
+    Returns (fetched, still_missing).
+    """
+    wanted: set[str] = set()
+    for page in cfg.site_dir.rglob("*.html"):
+        text = page.read_text(encoding="utf-8", errors="replace")
+        for ref in LOCAL_REF_RE.findall(text):
+            if ref.startswith("//") or ref.startswith(UNFETCHABLE_PREFIXES):
+                continue
+            path = ref.split("?", 1)[0].split("#", 1)[0]
+            if not path or path.endswith("/"):
+                continue
+            if (cfg.site_dir / path.lstrip("/")).exists():
+                continue
+            wanted.add(path)
+
+    if not wanted:
+        return 0, []
+
+    fetched: list[str] = []
+    failed: list[str] = []
+
+    def grab(path: str) -> None:
+        target = cfg.site_dir / path.lstrip("/")
+        if fetch(f"{cfg.local_origin}{path}", target, required=False):
+            fetched.append(path)
+        else:
+            failed.append(path)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(grab, sorted(wanted)))
+
+    return len(fetched), sorted(failed)
 
 
 def cleanup(cfg: Config) -> CleanupStats:

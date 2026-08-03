@@ -212,3 +212,41 @@ def test_legacy_host_in_html_is_normalised(cfg: Config) -> None:
     )
     out = rewrite_html('<a href="http://localhost:8000/gammalt/">x</a>', moved)
     assert 'href="/gammalt/"' in out
+
+
+# --- percent-encoded origins (oEmbed) ---------------------------------------
+
+OEMBED_HEAD = (
+    '<link rel="alternate" type="application/json+oembed" '
+    'href="http://localhost:8000/wp-json/oembed/1.0/embed?url=http%3A%2F%2Flocalhost%3A8000%2F" />'
+    '<link rel="alternate" type="text/xml+oembed" '
+    'href="http://localhost:8000/wp-json/oembed/1.0/embed?url=http%3A%2F%2Flocalhost%3A8000%2F&#038;format=xml" />'
+)
+
+
+def test_oembed_discovery_links_removed(cfg: Config) -> None:
+    """They point into /wp-json/, which the crawl excludes and the static site
+    does not serve."""
+    out = rewrite_html(f"<head>{OEMBED_HEAD}</head>", cfg)
+    assert "oembed" not in out.lower()
+
+
+def test_percent_encoded_host_is_normalised(cfg: Config) -> None:
+    """The live site has been publishing http%3A%2F%2Flocalhost%3A8000%2F on
+    every page: percent-encoded inside a query parameter, so no scheme://host
+    pattern could ever match it."""
+    doc = '<a href="/x?url=http%3A%2F%2Flocalhost%3A8000%2Fpost%2F">x</a>'
+    out = rewrite_html(doc, cfg)
+    assert "localhost" not in out
+    assert "https%3A%2F%2Flouie.se%2Fpost%2F" in out
+
+
+def test_percent_encoded_host_case_insensitive(cfg: Config) -> None:
+    out = rewrite_html('<a href="/x?u=https%3a%2f%2flocalhost%3a8000%2f">x</a>', cfg)
+    assert "localhost" not in out
+
+
+def test_no_host_leaks_from_a_realistic_head(cfg: Config) -> None:
+    out = rewrite_html(f"<head>{OEMBED_HEAD}</head>", cfg)
+    assert "localhost" not in out
+    assert "%3A%2F%2F" not in out  # nothing encoded left behind either

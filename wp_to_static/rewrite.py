@@ -22,6 +22,17 @@ WP_VERSION_REPLACEMENT = "OpenBSD 7.5 - ed"
 
 SHORTLINK_RE = re.compile(r"<link rel=['\"]shortlink['\"][^>]*>")
 
+# oEmbed discovery links point into /wp-json/, which is excluded from the crawl
+# and does not exist on the static site, so they are dead weight. They also
+# carry the origin percent-encoded inside a query parameter
+# (url=https%3A%2F%2Fhost%2F), which no scheme://host pattern can match -- the
+# live site has been publishing its build host this way for as long as the sed
+# pipeline has been running.
+OEMBED_LINK_RE = re.compile(
+    r"<link[^>]*type=['\"](?:application/json|text/xml)\+oembed['\"][^>]*>",
+    re.IGNORECASE,
+)
+
 # Feed autodiscovery links WordPress emits: site, comments, per-post comments,
 # category, tag and search feeds. All are stripped and replaced with the feeds
 # we actually publish.
@@ -72,6 +83,19 @@ def _escaped_local_url_re(cfg: Config) -> re.Pattern[str]:
     return re.compile(rf"https?:\\/\\/(?:{_hosts_alternation(cfg)})\\/")
 
 
+def _encoded_local_url_re(cfg: Config) -> re.Pattern[str]:
+    """Matches the percent-encoded form: https%3A%2F%2Flocalhost%3A8000%2F
+
+    Appears when WordPress puts a URL inside a query parameter. Hosts carrying
+    a port are encoded too, so the colon in "localhost:8000" is matched in
+    either form.
+    """
+    hosts = "|".join(
+        re.escape(host).replace(":", "(?::|%3A)") for host in cfg.source_hosts
+    )
+    return re.compile(rf"https?%3A%2F%2F(?:{hosts})(?:%2F)?", re.IGNORECASE)
+
+
 def rewrite_html(text: str, cfg: Config, feed_links: list[FeedLink] | None = None) -> str:
     """Apply the full HTML rewrite chain to one document."""
     local = f"(?:{_hosts_alternation(cfg)})"
@@ -89,11 +113,16 @@ def rewrite_html(text: str, cfg: Config, feed_links: list[FeedLink] | None = Non
     # 2. Everything else becomes root-relative.
     text = _local_url_re(cfg).sub("/", text)
     text = _escaped_local_url_re(cfg).sub("/", text)
+    # Percent-encoded occurrences sit inside query parameters, so they stay
+    # absolute and stay encoded -- just pointed at the public domain.
+    encoded_public = f"https%3A%2F%2F{cfg.domain}%2F"
+    text = _encoded_local_url_re(cfg).sub(encoded_public, text)
 
     # 3. Cache-busting query strings; the files themselves are renamed to match.
     text = VER_QUERY_RE.sub("", text)
 
     text = SHORTLINK_RE.sub("", text)
+    text = OEMBED_LINK_RE.sub("", text)
     text = INDEX_HTML_RE.sub("/", text)
     text = text.replace(THEME_ASSET_PREFIX, PUBLIC_ASSET_PREFIX)
 

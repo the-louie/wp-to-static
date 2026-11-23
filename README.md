@@ -87,6 +87,7 @@ Needs `wget`, `curl` and `rsync` on the path, and a reachable WordPress.
 | `--upload` / `--dry-run` | publish; preview the file list first |
 | `--allow-shrink` | accept a small drop in page count |
 | `--crosscheck-all` | verify every term's feed, not a sample of five |
+| `--no-crosscheck` | skip the feed check against WordPress (for offline `--build-data` builds); feeds go out unverified |
 | `--feed-max-items N` | cap feed length (default: no cap) |
 | `--build-data FILE` | use a captured JSON payload instead of WordPress |
 | `--no-minify` | leave HTML readable, for diffing against the old pipeline |

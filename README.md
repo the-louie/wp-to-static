@@ -15,9 +15,10 @@ Specifically, it hardcodes:
 
 - **louie.se** as the public domain, and a particular internal host as the
   WordPress instance it crawls
-- a **theme-specific asset path** (`wp-content/themes/eisai-child/assets/` gets
-  flattened to `/assets/`), and a list of JS files that must not be minified
-  because minifying them breaks the theme
+- a **theme-specific asset path** (`wp-content/themes/eisai-child/assets/`, where
+  the active `louie-theme` still keeps its web fonts, gets flattened to
+  `/assets/`), and a list of JS files that must not be minified because
+  minifying them breaks the theme
 - **`localhost:8000`** as a legacy host, because this site's database still
   carries URLs from an earlier home
 - a **bio page** at `/who-am-i/`, where bylines are pointed since author

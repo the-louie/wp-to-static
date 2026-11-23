@@ -16,7 +16,7 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 ## Open
 
 - ~~**B-001 · Reconcile scrub vs verify on wp-block-* in feed CDATA**~~ — CLOSED 2026-11-23 (Sprint 01 T-01): scrub.py `scrub_xml` now renames classes; dry run clears verify and reaches the upload gate.
-- → Sprint 01 T-02
+- ~~**B-002 · Fix theme asset path (eisai-child vs louie-theme)**~~ — DISPROVED 2026-11-23 (Sprint 01 T-02): not a bug. THEME_ASSET_PREFIX is the *source* path of the flattened `/assets/` fonts, which `louie-theme` still keeps under `eisai-child/assets/` (server returns 304 for them). The CSS references `/assets/VCR_OSD_MONO…`, which resolves; louie-theme's own JS uses full paths and resolves (bake `missing:0`). Changing the prefix would break the font flattening. README clarified to say so.
 - → Sprint 01 T-03
 - → Sprint 01 T-04
 - → Sprint 01 T-05

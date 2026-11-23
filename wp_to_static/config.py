@@ -13,13 +13,16 @@ from pathlib import Path
 
 # WordPress serves the mirror under a directory named after the host wget
 # crawled, so the site tree name is derived from local_url rather than stored.
-DEFAULT_LOCAL_URL = "louiese.i.louie.se"
+DEFAULT_LOCAL_URL = "louie-se.i.louie.se"
 DEFAULT_LOCAL_SCHEME = "https"
 DEFAULT_DOMAIN = "louie.se"
 
 # Hosts WordPress has served from previously. Stored data still refers to them
 # -- a post's guid is written once at creation and never updated -- so they
 # have to be normalised to the public domain alongside the current build host.
+# louie_se (underscore) is the immediately preceding home of this build; its
+# certificate did not validate under OpenSSL, which is why the move to the
+# hyphenated name happened. localhost:8000 is the home before that.
 DEFAULT_LEGACY_HOSTS = ("localhost:8000", "louie_se.i.louie.se")
 # Host alias resolves via the uploading user's ~/.ssh/config, which is
 # also where the identity file belongs -- not in this repo.

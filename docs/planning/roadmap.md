@@ -2,8 +2,8 @@
 
 ## Current position
 **Active sprint:** [Sprint 01](./sprints/sprint-01.md) — in progress.
-**Current ticket:** Sprint 01 T-01 (`todo` — Reconcile scrub vs verify on feed fingerprints).
-**Last completed:** —
+**Current ticket:** Sprint 01 T-02 (`todo` — Point THEME_ASSET_PREFIX at louie-theme).
+**Last completed:** Sprint 01 T-01 (scrub_xml renames classes).
 
 ## Sprints
 | Sprint | Goal | Status |

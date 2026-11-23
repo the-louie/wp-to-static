@@ -187,7 +187,15 @@ def site(cfg: Config) -> Config:
         "<p>I built wp-to-static for this</p></body></html>"
     )
     (s / "sitemap.xsl").write_text("<h1>WordPress Sitemap</h1>")
-    (s / "feed.xml").write_text("<rss><link>/wp-content/uploads/2026/pic.png</link></rss>")
+    (s / "feed.xml").write_text(
+        "<rss><channel><item>"
+        "<link>/wp-content/uploads/2026/pic.png</link>"
+        "<content:encoded><![CDATA["
+        '<figure class="wp-block-image"><img src="/wp-content/uploads/2026/pic.png"></figure>'
+        "<p>built with wp-to-static</p>"
+        "]]></content:encoded>"
+        "</item></channel></rss>"
+    )
     return cfg
 
 
@@ -223,6 +231,20 @@ def test_references_follow_the_directory_rename(site: Config) -> None:
 def test_feed_paths_renamed_too(site: Config) -> None:
     scrub_tree(site)
     assert "/content/uploads" in (site.site_dir / "feed.xml").read_text()
+
+
+def test_feed_block_classes_renamed(site: Config) -> None:
+    """Feed CDATA carries the post's body, so its wp-block-* classes must be
+    renamed like the page's, or verify's fingerprint scan fails the build on
+    content that is really just the post."""
+    scrub_tree(site)
+    feed = (site.site_dir / "feed.xml").read_text()
+    assert 'class="blk-image"' in feed
+    assert "wp-block" not in feed
+    # Prose inside the feed is left alone.
+    assert "wp-to-static" in feed
+    # The whole point: nothing for verify to trip over.
+    assert find_leftovers(site) == {}
 
 
 def test_dead_scripts_gone_from_the_tree(site: Config) -> None:

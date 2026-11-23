@@ -206,9 +206,20 @@ def scrub_css(text: str, *, minify: bool = True) -> str:
     return inner if inner and len(inner) < len(text) else text
 
 
-def scrub_xml(text: str) -> str:
+def scrub_xml(text: str) -> tuple[str, int]:
+    """Scrub a generated feed or sitemap, returning the rename count.
+
+    Feeds carry each post's body HTML inside CDATA, so the same wp-block-*
+    class names the HTML pages are scrubbed of appear here too. Rename them the
+    same way: otherwise the feed advertises a different class set than the page
+    it mirrors, and the verify stage's fingerprint scan -- which reads .xml --
+    fails the build on content that is really just the post. rename_classes is
+    scoped to class/id attribute values and <style>/<script> bodies, so feed
+    prose and the feed's own XML element names are left untouched.
+    """
     text, _ = rename_paths(text)
-    return text
+    text, renamed = rename_classes(text)
+    return text, renamed
 
 
 def scrub_xsl(text: str) -> str:
@@ -344,7 +355,8 @@ def scrub_tree(cfg: Config) -> ScrubStats:
         elif suffix == ".js":
             new, _ = rename_paths(text)
         elif suffix == ".xml":
-            new = scrub_xml(text)
+            new, n = scrub_xml(text)
+            stats.classes_renamed += n
         elif suffix == ".xsl":
             new = scrub_xsl(text)
         else:

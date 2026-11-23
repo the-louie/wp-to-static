@@ -15,7 +15,7 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 ## Open
 
-- → Sprint 01 T-01
+- ~~**B-001 · Reconcile scrub vs verify on wp-block-* in feed CDATA**~~ — CLOSED 2026-11-23 (Sprint 01 T-01): scrub.py `scrub_xml` now renames classes; dry run clears verify and reaches the upload gate.
 - → Sprint 01 T-02
 - → Sprint 01 T-03
 - → Sprint 01 T-04

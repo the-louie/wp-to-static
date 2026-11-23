@@ -161,7 +161,10 @@ tidying, not concealment — nothing here tries to defeat fingerprinting.
   every reference. `_server/louie-legacy-paths.conf` keeps the old URLs working,
   because they appear in already-published feed items and in anything shared.
 - `wp-block-*` → `blk-*`, remaining `wp-*` → `ui-*`, in CSS, markup and inline
-  JS together. **Not** `site-*`: the theme already uses `site-content`, and
+  JS together, and in the post bodies the feeds carry inside CDATA — a feed
+  item is a copy of the page, so it is scrubbed to match or `verify` (which
+  reads `.xml`) fails on it. **Not** `site-*`: the theme already uses
+  `site-content`, and
   `wp-content` would have merged straight into it. `check_collisions()` enforces
   that the chosen prefixes are free rather than trusting they are.
 - The emoji polyfill, the oEmbed script, the speculation-rules block and the

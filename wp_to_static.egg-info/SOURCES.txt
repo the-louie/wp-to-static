@@ -5,6 +5,7 @@ tests/test_end_to_end.py
 tests/test_feeds.py
 tests/test_pipeline.py
 tests/test_rewrite.py
+tests/test_scrub.py
 tests/test_verify.py
 wp_to_static/__init__.py
 wp_to_static/__main__.py
@@ -16,6 +17,7 @@ wp_to_static/overlay.py
 wp_to_static/publish.py
 wp_to_static/report.py
 wp_to_static/rewrite.py
+wp_to_static/scrub.py
 wp_to_static/verify.py
 wp_to_static/wpapi.py
 wp_to_static.egg-info/PKG-INFO

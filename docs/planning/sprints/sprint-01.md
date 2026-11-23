@@ -1,6 +1,6 @@
 # Sprint 01 — Make the moved build publishable and align README with code
 
-**Status:** in progress (opened 2026-11-23)
+**Status:** done (closed 2026-11-23)
 **Current ticket:** — (all tickets closed)
 **Last completed:** T-05 (`done` — README test count refreshed)
 **Budget:** 8h estimated (below the 80–120h band on purpose: these five rows are
@@ -31,4 +31,31 @@ matches the code. `.venv/bin/python -m pytest` is green.
   under eisai-child. No code change; README clarified. Budget now 6h.
 
 ## Retro
-(filled at close)
+**Status set to done 2026-11-23.**
+
+Shipped:
+- T-01 (B-001): `scrub_xml` now renames classes inside feed CDATA, so the feed
+  matches the scrubbed page it mirrors. The build clears `verify` and reaches
+  the upload gate for the first time since the move. +1 regression test. The
+  only remaining dry-run error is rsync's ssh to the `static` alias, which is an
+  environment credential, not a code defect, and lands past the verify gate.
+- T-03 (B-003): `--no-crosscheck` documented (kept: offline `--build-data`
+  builds need it).
+- T-04 (B-004): `--repo` / `--output` documented as overrides of `WPTS_REPO` /
+  `WPTS_OUTPUT`.
+- T-05 (B-005): README test count 115 → 161.
+
+Dropped:
+- T-02 (B-002): disproved. `THEME_ASSET_PREFIX` is correct, it is the source
+  path of the `/assets/` fonts louie-theme still keeps under eisai-child. One
+  one-line README clarification landed under this dropped ticket (logged in its
+  commit), because it is what answers the confusion that created the row.
+
+Estimate accuracy: 6h planned after the T-02 drop, 4 tickets closed plus one
+disproved in roughly that envelope. Sprint ran far below the 80–120h band by
+design: these five rows were the entire known backlog after the review, so the
+band does not apply. Not a recalibration signal.
+
+What changed in the backlog: B-001/003/004/005 closed, B-002 struck as
+disproved. B-006 (EXCLUDE_MINIFY) remains, P3, and is decision-shaped: it needs
+a browser and a human, so it is not schedulable by the loop.

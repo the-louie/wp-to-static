@@ -2,8 +2,8 @@
 
 ## Current position
 **Active sprint:** [Sprint 01](./sprints/sprint-01.md) — in progress.
-**Current ticket:** Sprint 01 T-04 (`todo` — Document or drop --repo / --output).
-**Last completed:** Sprint 01 T-03 (--no-crosscheck documented).
+**Current ticket:** Sprint 01 T-05 (`todo` — Refresh README test count).
+**Last completed:** Sprint 01 T-04 (--repo/--output documented).
 
 ## Sprints
 | Sprint | Goal | Status |

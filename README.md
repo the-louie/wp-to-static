@@ -96,6 +96,10 @@ Configuration comes from the environment, and `.env` in the repo root is read
 automatically: `WPTS_LOCAL_URL` (accepts a full origin), `WPTS_DOMAIN`,
 `WPTS_OUTPUT`, `WPTS_UPLOAD`, `WPTS_API_SECRET`, `WPTS_INSECURE`.
 
+The two paths also take a per-run flag: `--repo DIR` (the repo root, default the
+working directory; overrides `WPTS_REPO`) and `--output DIR` (the build tree,
+overrides `WPTS_OUTPUT`).
+
 The ssh identity for uploading comes from the uploading user's `~/.ssh/config`,
 not from here.
 

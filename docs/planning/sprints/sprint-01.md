@@ -1,8 +1,8 @@
 # Sprint 01 — Make the moved build publishable and align README with code
 
 **Status:** in progress (opened 2026-11-23)
-**Current ticket:** T-04 (`todo` — Document or drop --repo / --output)
-**Last completed:** T-03 (`done` — --no-crosscheck documented)
+**Current ticket:** T-05 (`todo` — Refresh README test count)
+**Last completed:** T-04 (`done` — --repo/--output documented)
 **Budget:** 8h estimated (below the 80–120h band on purpose: these five rows are
 the entire known backlog after the review; the sprint ends on the demo, not on
 filling hours)
@@ -22,7 +22,7 @@ matches the code. `.venv/bin/python -m pytest` is green.
 | T-01 | Reconcile scrub vs verify on wp-block-* in feed CDATA | 3 | — | B-001 | done | scrub_xml now renames classes in feed CDATA (consistent with HTML pages); dry run clears verify, reaches `==> uploading`; README updated; +1 regression test. |
 | T-02 | Point THEME_ASSET_PREFIX at the active louie-theme | 2 | — | B-002 | dropped | Disproved on investigation: the prefix is the source path of the flattened `/assets/` fonts, which louie-theme still keeps under eisai-child/assets/ (304s confirm). CSS resolves `/assets/…`; louie-theme JS uses full paths (bake missing:0). Changing it would break font flattening. README clarified; no code change. See Scope changes. |
 | T-03 | Document or remove --no-crosscheck | 1 | — | B-003 | done | Kept and documented: it is needed for offline --build-data builds (WordPress not reachable to cross-check against). Added to README flag table. |
-| T-04 | Document or drop --repo / --output | 1 | — | B-004 | todo | Acceptance: README and __main__.py agree on both flags. Tests green. |
+| T-04 | Document or drop --repo / --output | 1 | — | B-004 | done | Documented both in README as per-run overrides of WPTS_REPO / WPTS_OUTPUT; kept (functional, no test depends on them). |
 | T-05 | Refresh README test count | 1 | — | B-005 | todo | Acceptance: README number equals `pytest` collected count. |
 
 ## Scope changes

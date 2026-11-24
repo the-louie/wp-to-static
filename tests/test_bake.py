@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from wp_to_static import bake
 from wp_to_static.bake import (
     BakeStats,
     bake_html,
@@ -69,8 +70,13 @@ def test_missing_css_is_counted_not_silent(mirror: Config) -> None:
     assert stats.css_missing == 1
 
 
-def test_js_minified_once_per_file_not_per_page(mirror: Config) -> None:
-    """The Node version re-minified shared JS from every referencing page."""
+def test_js_minified_once_per_file_not_per_page(mirror: Config, monkeypatch) -> None:
+    """The Node version re-minified shared JS from every referencing page.
+
+    EXCLUDE_MINIFY is pinned to the fixture's own file so the test exercises the
+    skip mechanism rather than whatever the production list happens to contain.
+    """
+    monkeypatch.setattr(bake, "EXCLUDE_MINIFY", frozenset({"inc/js/jquery/jquery.min.js"}))
     stats = bake_tree(mirror)
     assert stats.js_minified == 1  # app.js only; jquery.min.js is excluded
     assert "inc/js/jquery/jquery.min.js" in stats.js_skipped
@@ -127,9 +133,14 @@ def test_exclusions_are_keyed_on_post_scrub_paths(mirror: Config) -> None:
     assert not any(e.startswith(("wp-content/", "wp-includes/")) for e in EXCLUDE_MINIFY)
 
 
-def test_stale_exclusions_are_reported(mirror: Config) -> None:
+def test_stale_exclusions_are_reported(mirror: Config, monkeypatch) -> None:
     """An entry matching no file protects nothing, and silence made that
-    invisible for a long time."""
+    invisible for a long time. One entry exists in the fixture, one does not."""
+    monkeypatch.setattr(
+        bake,
+        "EXCLUDE_MINIFY",
+        frozenset({"content/does/not/exist.js", "inc/js/jquery/jquery.min.js"}),
+    )
     stats = bake_tree(mirror)
-    assert "content/plugins/megamenu/js/maxmegamenu.js" in stats.unmatched_exclusions
+    assert "content/does/not/exist.js" in stats.unmatched_exclusions
     assert "inc/js/jquery/jquery.min.js" not in stats.unmatched_exclusions

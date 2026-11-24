@@ -32,8 +32,15 @@ SCRIPT_SRC_RE = re.compile(
     r"""<script\s[^>]*src=["']([^"']+)["'][^>]*>\s*</script>""", re.IGNORECASE
 )
 
-# Libraries that break when minified again, usually because they are already
-# minified and rely on constructs the minifier rewrites.
+# The JS files that ship already minified. Re-minifying them saves a fraction
+# of a percent (uikit.min.js: 133098 -> 132813 bytes) for the risk of corrupting
+# a third-party bundle we do not own, so the build skips them. A headless-Chrome
+# test on 2026-11-24 loaded every one of these both minified-again and in its
+# original form and found them identical: UIkit and baguetteBox initialise, the
+# UIkit offcanvas menu opens, and no JS error is thrown either way. So the
+# exclusion is a cost decision, not a workaround for an observed break. louie.js
+# is the one hand-written script and is NOT listed, because it is not already
+# minified and shrinks ~40%.
 #
 # Paths are relative to the site root and must be written as they exist when
 # bake runs, which is after the scrub stage has renamed wp-content to content
@@ -42,11 +49,10 @@ SCRIPT_SRC_RE = re.compile(
 # protecting nothing.
 EXCLUDE_MINIFY = frozenset(
     {
-        "content/plugins/megamenu/js/maxmegamenu.js",
-        "inc/js/jquery/jquery.min.js",
-        "inc/js/hoverIntent.min.js",
+        "content/plugins/gallery-block-lightbox/dist/baguetteBox.min.js",
         "content/themes/louie-theme/assets/js/uikit.min.js",
         "content/themes/louie-theme/assets/js/uikit-icons.min.js",
+        "content/themes/louie-theme/assets/js/eisai.min.js",
     }
 )
 

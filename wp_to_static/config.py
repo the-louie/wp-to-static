@@ -90,6 +90,12 @@ class Config:
     # Archive directories that should not get a feed, even though the term is
     # public. Keyed the same way as feeds.site_relative().
     feed_exclude: tuple[str, ...] = ("category/about",)
+    # Paths to strip from the fetched sitemaps before they publish. WordPress
+    # lists every public URL, but some resolve to an error or an excluded page
+    # and must not be advertised to crawlers: `category/about` is excluded from
+    # page generation and returns 403, `lost` is the 404 target. Keyed like
+    # feed_exclude (site-relative, slash-stripped); a key also matches subpaths.
+    sitemap_exclude: tuple[str, ...] = ("category/about", "lost")
     # A build that publishes fewer pages than the last one is assumed to be a
     # failure rather than an edit. Small shrinks warn and can be overridden;
     # anything larger halts.

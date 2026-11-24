@@ -51,7 +51,7 @@ dependency.
 |---|---|
 | `crawl` | recursive `wget` mirror, plus targeted fetches for things nothing links to |
 | `pages` | fetches public URLs the crawl never reached, from the plugin's URL list |
-| `sitemaps` | every page of every sitemap provider; regenerates the index |
+| `sitemaps` | every page of every sitemap provider; filters excluded/error URLs (`sitemap_exclude`), regenerates the index |
 | `cleanup` | drops `?p=` duplicates and `.php` files, strips `?ver=` from filenames |
 | `feeds` | generates site and per-term RSS/Atom, then checks them against WordPress |
 | `rewrite` | URL rewriting, feed autodiscovery, scrubs the WordPress version |

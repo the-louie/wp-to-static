@@ -37,6 +37,38 @@ SITEMAP_PROVIDERS = (
     "taxonomies-post_tag",
 )
 
+# One <url>…</url> entry in a WordPress sitemap. WP emits these in a fixed,
+# well-formed shape (loc first), so a regex is enough and avoids pulling in an
+# XML parser for a filter this small.
+SITEMAP_URL_RE = re.compile(r"\s*<url>\s*<loc>(.*?)</loc>.*?</url>", re.DOTALL)
+
+
+def _loc_excluded(loc: str, excludes: tuple[str, ...]) -> bool:
+    """True when a sitemap loc's path is an excluded path or under one."""
+    path = urlsplit(loc).path.strip("/")
+    return any(path == e or path.startswith(f"{e}/") for e in excludes)
+
+
+def filter_sitemap_urls(text: str, excludes: tuple[str, ...]) -> tuple[str, int]:
+    """Drop <url> entries whose loc path is in the build's sitemap excludes.
+
+    WordPress advertises every public URL, including ones that resolve to an
+    error (the 404 target) or a page the build excludes (a 403 category). Those
+    must not reach a crawler, so they are stripped here before the sitemap index
+    is written. The loc still carries the build host at this stage, so the match
+    is on the path only.
+    """
+    removed = 0
+
+    def repl(match: re.Match[str]) -> str:
+        nonlocal removed
+        if _loc_excluded(match.group(1), excludes):
+            removed += 1
+            return ""
+        return match.group(0)
+
+    return SITEMAP_URL_RE.sub(repl, text), removed
+
 # Assets the crawl cannot discover, because nothing links to them in a form
 # wget follows. The emoji polyfill is deliberately absent: the scrub stage
 # removes every script tag that would reference it, so fetching it would only
@@ -165,9 +197,15 @@ def fetch_sitemaps(cfg: Config) -> list[str]:
         page = 1
         while True:
             name = f"sitemap-{provider}-{page}.xml"
+            target = cfg.site_dir / name
             url = f"{cfg.local_origin}/wp-sitemap-{provider}-{page}.xml"
-            if not fetch(url, cfg.site_dir / name, required=False):
+            if not fetch(url, target, required=False):
                 break
+            if cfg.sitemap_exclude:
+                text = target.read_text(encoding="utf-8")
+                filtered, removed = filter_sitemap_urls(text, cfg.sitemap_exclude)
+                if removed:
+                    target.write_text(filtered, encoding="utf-8")
             written.append(name)
             page += 1
     if not written:

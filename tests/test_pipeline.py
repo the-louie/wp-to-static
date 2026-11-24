@@ -11,7 +11,7 @@ import pytest
 
 from wp_to_static.__main__ import build
 from wp_to_static.config import Config
-from wp_to_static.mirror import cleanup, write_sitemap_index
+from wp_to_static.mirror import cleanup, filter_sitemap_urls, write_sitemap_index
 from wp_to_static.overlay import OverlayError, apply_overlay
 
 
@@ -112,6 +112,45 @@ def test_sitemap_index_lists_only_existing_files(mirror: Config) -> None:
     doc = (mirror.site_dir / "sitemap.xml").read_text()
     assert doc.count("<sitemap>") == 2
     assert "https://louie.se/sitemap-posts-post-2.xml" in doc
+
+
+SAMPLE_CATEGORY_SITEMAP = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    "<url><loc>https://louie-se.i.louie.se/category/coding/</loc>"
+    "<lastmod>2025-01-01</lastmod></url>"
+    "<url><loc>https://louie-se.i.louie.se/category/about/</loc>"
+    "<lastmod>2025-01-01</lastmod></url>"
+    "</urlset>"
+)
+
+
+def test_filter_sitemap_drops_excluded_path() -> None:
+    out, removed = filter_sitemap_urls(SAMPLE_CATEGORY_SITEMAP, ("category/about",))
+    assert removed == 1
+    assert "category/about" not in out
+    assert "category/coding" in out  # a real page survives
+    assert out.count("<url>") == 1
+
+
+def test_filter_sitemap_matches_subpaths_not_prefixes() -> None:
+    doc = (
+        "<urlset>"
+        "<url><loc>https://h/lost/</loc></url>"
+        "<url><loc>https://h/lost-and-found/</loc></url>"
+        "<url><loc>https://h/lost/page/2/</loc></url>"
+        "</urlset>"
+    )
+    out, removed = filter_sitemap_urls(doc, ("lost",))
+    assert removed == 2  # /lost/ and /lost/page/2/, not /lost-and-found/
+    assert "lost-and-found" in out
+
+
+def test_filter_sitemap_leaves_clean_file_untouched() -> None:
+    doc = "<urlset><url><loc>https://h/real-post/</loc></url></urlset>"
+    out, removed = filter_sitemap_urls(doc, ("category/about", "lost"))
+    assert removed == 0
+    assert out == doc
 
 
 def test_full_offline_build(mirror: Config) -> None:

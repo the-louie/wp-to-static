@@ -153,6 +153,16 @@ def test_filter_sitemap_leaves_clean_file_untouched() -> None:
     assert out == doc
 
 
+def test_post_tag_sitemap_provider_is_not_published() -> None:
+    """The 35 thin tag archives must not be advertised in the sitemap."""
+    from wp_to_static.mirror import SITEMAP_PROVIDERS
+
+    assert "taxonomies-post_tag" not in SITEMAP_PROVIDERS
+    # the providers that carry real, indexable pages stay
+    assert "posts-post" in SITEMAP_PROVIDERS
+    assert "taxonomies-category" in SITEMAP_PROVIDERS
+
+
 def test_full_offline_build(mirror: Config) -> None:
     """Everything except crawl/sitemaps/upload, which need a live WordPress."""
     assert build(mirror, {"cleanup", "rewrite", "overlay", "bake"}, make_args()) == 0

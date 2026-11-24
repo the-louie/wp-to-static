@@ -48,7 +48,7 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-008 · Filter dead and excluded URLs out of the fetched sitemaps**~~ — CLOSED 2026-11-24 (Sprint 02 T-01): `mirror.filter_sitemap_urls` + `config.sitemap_exclude` strip `/category/about/` (403) and `/lost/` from the member sitemaps before the index is written.
 
-- → Sprint 02 T-02 (B-009 · Drop the post_tag sitemap from the build)
+- ~~**B-009 · Drop the post_tag sitemap from the build**~~ — CLOSED 2026-11-24 (Sprint 02 T-02): `taxonomies-post_tag` removed from `mirror.SITEMAP_PROVIDERS`; the 35 thin tag archives are no longer advertised, the pages still ship for visitors.
 
 - [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: blocked on the nginx 404 change · src: SEO report §3.1
       `_overlay/robots.txt` has three `Disallow: /lost…` lines. The report wants

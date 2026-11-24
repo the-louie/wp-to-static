@@ -30,11 +30,16 @@ WGET_BASE = ["wget", "--no-cache", "--no-cookies"]
 # mirror.
 CRAWL_EXCLUDES = ["wp-json", "author", "comments", "wp-admin"]
 
+# Which WordPress sitemap providers to publish. post_tag is deliberately
+# omitted: the 35 tag archives are thin lists with no canonical and no heading,
+# so advertising them to crawlers only dilutes the index (see the 2026-11-24 SEO
+# report). The tag pages themselves still ship, since the crawl follows links to
+# them; they are simply not in the sitemap. Making the few biggest tags real
+# pages, or adding noindex, is the theme/content sessions' call.
 SITEMAP_PROVIDERS = (
     "posts-post",
     "posts-page",
     "taxonomies-category",
-    "taxonomies-post_tag",
 )
 
 # One <url>…</url> entry in a WordPress sitemap. WP emits these in a fixed,

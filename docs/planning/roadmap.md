@@ -1,15 +1,15 @@
 # Roadmap
 
 ## Current position
-**Active sprint:** [Sprint 02](./sprints/sprint-02.md) — in progress (opened 2026-11-24).
-**Current ticket:** Sprint 02 T-01 (`todo` — Filter dead/excluded URLs out of the fetched sitemaps).
-**Last completed:** Sprint 01 T-05 (README test count refreshed).
+**Active sprint:** none. [Sprint 02](./sprints/sprint-02.md) — done. No schedulable backlog row left (only B-010, decision-blocked on a server change).
+**Current ticket:** —
+**Last completed:** Sprint 02 T-03 (honest `--no-minify`, commit `fef55c7`).
 
 ## Sprints
 | Sprint | Goal | Status |
 | --- | --- | --- |
 | [01](./sprints/sprint-01.md) | Make the moved build publishable and align README with code | done |
-| [02](./sprints/sprint-02.md) | SEO sitemap hygiene and honest --no-minify | in progress |
+| [02](./sprints/sprint-02.md) | SEO sitemap hygiene and honest --no-minify | done |
 
 ## Later (sketch)
 - **Sprint 03** goal line: only if new work lands. After Sprint 02 the schedulable

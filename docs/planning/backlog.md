@@ -67,31 +67,6 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-009 · Drop the post_tag sitemap from the build**~~ — CLOSED 2026-11-24 (Sprint 02 T-02): `taxonomies-post_tag` removed from `mirror.SITEMAP_PROVIDERS`; the 35 thin tag archives are no longer advertised, the pages still ship for visitors.
 
-- [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: now blocked only on the wp-theme noindex on /lost/ · src: SEO report §3.1
-      `_overlay/robots.txt` has three `Disallow: /lost…` lines. Two preconditions:
-      (a) nginx returns a real 404 for dead URLs, (b) the `/lost/` page carries a
-      `noindex` meta. **(a) is DONE**: the **hosting** session confirmed 2026-11-24
-      that static5 now serves `error_page 404 /lost/index.html` (missing URLs 404,
-      `/lost/` returns 200) and `absolute_redirect off`. **(b) is still open** with
-      the **wp-theme** session. Order matters: `/lost/` returns 200, so removing the
-      Disallow before the noindex exists lets Google crawl and index a soft-404. The
-      noindex must go on first, *then* robots unblocks so Google reads it and drops
-      the page. So still held — on wp-theme now, not hosting. When wp-theme signals
-      the lost page has noindex, land this one-line edit and close. Files:
-      `_overlay/robots.txt`.
+- ~~**B-010 · Remove the `/lost` disallows from robots.txt**~~ — CLOSED 2026-11-24: both preconditions met and verified live — nginx serves a real `error_page 404` (hosting) and `/lost/` carries a `noindex` meta (wp-theme). Removed the three `Disallow: /lost…` lines from `_overlay/robots.txt` (replaced with an explicit empty `Disallow:` so the default group isn't empty); Google can now crawl `/lost/`, read the noindex, and drop it.
 
-- [ ] **B-011 · Restore the post_tag sitemap once tag pages are real** · 1h · prio P2 · decision: blocked on the wp-theme session · src: interview 2026-11-24, reverses B-009
-      The operator chose to **promote all 35 tag pages** to real pages, not to leave
-      them deindexed. B-009 dropped `taxonomies-post_tag` from `SITEMAP_PROVIDERS`
-      because the tag archives were thin (no self-canonical, no H1). Once the
-      **wp-theme** session gives tag archives a self-referencing canonical and an H1
-      (one template change covers all 35), the build should re-add the provider so
-      the tags are advertised again. Doing it before that would re-advertise thin
-      pages, so it is held until wp-theme pings mkstatic that tag canonicals are
-      live. Files: `wp_to_static/mirror.py` (SITEMAP_PROVIDERS), test.
-      **2026-11-24 update:** wp-theme first fixed the wrong theme — the active theme
-      on live+dev WP is `louie-theme` (repo `wp-louie.se-2025`), confirmed by the
-      static output (126 files reference louie-theme, 0 reference eisai-child, which
-      is only the flattened-font source path, cf. B-002). The canonical+H1 must land
-      in `louie-theme` and deploy to the dev WP at https://louie-se.i.louie.se before
-      this is unblocked. Decision unchanged; still held on wp-theme's ping.
+- ~~**B-011 · Restore the post_tag sitemap once tag pages are real**~~ — CLOSED 2026-11-24: the operator chose to promote all 35 tag pages; wp-theme shipped a self-canonical + "Posts tagged X" H1 for every tag archive in the active theme `louie-theme` (`wp-louie.se-2025`), live on the dev WP and verified by hosting. Re-added `taxonomies-post_tag` to `SITEMAP_PROVIDERS` (reverses B-009). The two empty category archives render 200 now but stay out of the sitemap via `sitemap_exclude` (per-URL), extended with `category/uncategorised`.

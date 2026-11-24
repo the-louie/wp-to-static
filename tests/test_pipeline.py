@@ -153,14 +153,32 @@ def test_filter_sitemap_leaves_clean_file_untouched() -> None:
     assert out == doc
 
 
-def test_post_tag_sitemap_provider_is_not_published() -> None:
-    """The 35 thin tag archives must not be advertised in the sitemap."""
+def test_post_tag_sitemap_provider_is_published() -> None:
+    """Tag archives were promoted to real pages (self-canonical + H1 in the active
+    theme), so the tag sitemap is advertised again."""
     from wp_to_static.mirror import SITEMAP_PROVIDERS
 
-    assert "taxonomies-post_tag" not in SITEMAP_PROVIDERS
-    # the providers that carry real, indexable pages stay
+    assert "taxonomies-post_tag" in SITEMAP_PROVIDERS
     assert "posts-post" in SITEMAP_PROVIDERS
     assert "taxonomies-category" in SITEMAP_PROVIDERS
+
+
+def test_empty_categories_stay_out_of_the_sitemap(cfg: Config) -> None:
+    """The two empty category archives render (200) but are thin, so the build
+    keeps them out of the sitemap via the per-URL exclude, not the provider list."""
+    excludes = cfg.sitemap_exclude
+    doc = (
+        "<urlset>"
+        "<url><loc>https://h/category/coding/</loc></url>"
+        "<url><loc>https://h/category/about/</loc></url>"
+        "<url><loc>https://h/category/uncategorised/</loc></url>"
+        "</urlset>"
+    )
+    out, removed = filter_sitemap_urls(doc, excludes)
+    assert removed == 2
+    assert "category/coding" in out
+    assert "category/about" not in out
+    assert "category/uncategorised" not in out
 
 
 def test_full_offline_build(mirror: Config) -> None:

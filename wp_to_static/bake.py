@@ -184,9 +184,15 @@ def bake_html(text: str, cfg: Config, stats: BakeStats) -> str:
 
 
 def bake_tree(cfg: Config) -> BakeStats:
-    """Minify all JS once, then bake every HTML page."""
+    """Minify all JS once, then bake every HTML page.
+
+    --no-minify (`cfg.minify is False`) skips both the JS pass and HTML
+    minification. The flag exists to diff a build against the old pipeline, which
+    needs the JS left readable; minifying it anyway would defeat the flag.
+    """
     stats = BakeStats()
-    minify_js_tree(cfg, stats)
+    if cfg.minify:
+        minify_js_tree(cfg, stats)
     for path in sorted(cfg.site_dir.rglob("*.html")):
         text = path.read_text(encoding="utf-8", errors="replace")
         path.write_text(bake_html(text, cfg, stats), encoding="utf-8")

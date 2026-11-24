@@ -90,7 +90,7 @@ Needs `wget`, `curl` and `rsync` on the path, and a reachable WordPress.
 | `--no-crosscheck` | skip the feed check against WordPress (for offline `--build-data` builds); feeds go out unverified |
 | `--feed-max-items N` | cap feed length (default: no cap) |
 | `--build-data FILE` | use a captured JSON payload instead of WordPress |
-| `--no-minify` | leave HTML readable, for diffing against the old pipeline |
+| `--no-minify` | leave HTML and JS readable, for diffing against the old pipeline |
 
 Configuration comes from the environment, and `.env` in the repo root is read
 automatically: `WPTS_LOCAL_URL` (accepts a full origin), `WPTS_DOMAIN`,
@@ -231,7 +231,7 @@ replacement for one. Deploying them is a manual step, documented in
 ## Tests
 
 ```sh
-.venv/bin/python -m pytest        # 161 tests, all offline
+.venv/bin/python -m pytest        # 166 tests, all offline
 ```
 
 Everything runs against fixtures; no WordPress required, and no shell or Node

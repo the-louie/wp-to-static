@@ -44,7 +44,7 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-006 · Settle the EXCLUDE_MINIFY list against the live theme**~~ — CLOSED 2026-11-24: headless-Chrome test (both minified-again and original) showed UIkit + baguetteBox init and the offcanvas menu work identically, no JS errors. EXCLUDE_MINIFY set to the 4 already-minified shipped bundles; 3 dead entries removed; mechanism tests decoupled from production values. bake.py EXCLUDE_MINIFY.
 
-- → Sprint 02 T-03 (B-007 · `--no-minify` does not disable JS minification)
+- ~~**B-007 · `--no-minify` does not disable JS minification**~~ — CLOSED 2026-11-24 (Sprint 02 T-03): `bake_tree` now gates `minify_js_tree` on `cfg.minify`; the flag leaves JS readable, as the README says.
 
 - ~~**B-008 · Filter dead and excluded URLs out of the fetched sitemaps**~~ — CLOSED 2026-11-24 (Sprint 02 T-01): `mirror.filter_sitemap_urls` + `config.sitemap_exclude` strip `/category/about/` (403) and `/lost/` from the member sitemaps before the index is written.
 

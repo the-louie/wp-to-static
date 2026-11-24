@@ -114,6 +114,17 @@ def test_no_minify_flag_preserves_markup(mirror: Config) -> None:
     assert "</head>" in out  # optional tags not stripped
 
 
+def test_no_minify_flag_leaves_js_readable(mirror: Config) -> None:
+    """--no-minify is for diffing against the old pipeline, so the JS pass must
+    be skipped too, not only the HTML one."""
+    cfg = replace(mirror, minify=False)
+    stats = bake_tree(cfg)
+    assert stats.js_minified == 0
+    body = (cfg.site_dir / "assets/js/app.js").read_text()
+    assert "var msg" in body  # untouched, still readable
+    assert body == 'function greet(namn) { var msg = "hej " + namn; return msg; }\n'
+
+
 def test_font_awesome_empty_elements_survive(mirror: Config) -> None:
     stats = BakeStats()
     out = bake_html(

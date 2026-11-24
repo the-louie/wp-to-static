@@ -44,37 +44,11 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-006 · Settle the EXCLUDE_MINIFY list against the live theme**~~ — CLOSED 2026-11-24: headless-Chrome test (both minified-again and original) showed UIkit + baguetteBox init and the offcanvas menu work identically, no JS errors. EXCLUDE_MINIFY set to the 4 already-minified shipped bundles; 3 dead entries removed; mechanism tests decoupled from production values. bake.py EXCLUDE_MINIFY.
 
-- [ ] **B-007 · `--no-minify` does not disable JS minification** · 2h · prio P2 · src: B-006 investigation
-      `bake_tree` calls `minify_js_tree` unconditionally, so `--no-minify` only
-      skips HTML minification. README says it skips "HTML/JS minification" and
-      the flag is meant for diffing against the old pipeline, which needs the JS
-      readable. Fix: gate `minify_js_tree` on `cfg.minify` (or document the
-      actual behaviour). Found while building a no-minify baseline for B-006.
+- → Sprint 02 T-03 (B-007 · `--no-minify` does not disable JS minification)
 
-- [ ] **B-008 · Filter dead and excluded URLs out of the fetched sitemaps** · 3h · prio P1 · src: SEO report §1.4, §2, §3.3
-      `mirror.fetch_sitemaps` downloads WordPress's own sitemap files verbatim and
-      nothing strips URLs; only `sitemap.xml` (the index) is generated. So the
-      member sitemaps still list `/category/about/` (returns **403**: it is in
-      `config.feed_exclude` and no page is generated for it) and `/lost/` (the 404
-      target). Google is told to crawl a 403 and an error page. Fix: after fetch,
-      filter `<url>` entries whose loc matches a build-side exclude list (reuse /
-      extend `feed_exclude`, add the lost path) from each member file before the
-      index is written; the WordPress-style sitemap XSL/format must still validate.
-      Acceptance: a dry run's `sitemap-taxonomies-category-1.xml` no longer contains
-      `/category/about/`, no sitemap contains `/lost/`, index still resolves. Test
-      against a fixture sitemap. Files: `wp_to_static/mirror.py`, `config.py`, tests.
+- → Sprint 02 T-01 (B-008 · Filter dead and excluded URLs out of the fetched sitemaps)
 
-- [ ] **B-009 · Drop the post_tag sitemap (35 thin tag pages) from the build** · 1h · prio P2 · src: SEO report §3.3, §3.4
-      35 tag pages with no canonical and no H1 are listed in
-      `sitemap-taxonomies-post_tag-1.xml` because `taxonomies-post_tag` is in
-      `mirror.SITEMAP_PROVIDERS`. Report's recommended direction: noindex them and
-      drop them from the sitemap. The build half is removing the provider so the tag
-      sitemap is neither fetched nor indexed; the tag pages still ship for visitors
-      (wget follows the links), they are just not advertised. The noindex meta and
-      any "make the 5-6 biggest tags real pages" decision belong to the theme/content
-      sessions. Acceptance: dry run's sitemap index lists no post_tag member.
-      Files: `wp_to_static/mirror.py` (SITEMAP_PROVIDERS), test. Depends on nothing;
-      coordinate the keep-a-few variant with the theme session before closing.
+- → Sprint 02 T-02 (B-009 · Drop the post_tag sitemap from the build)
 
 - [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: blocked on the nginx 404 change · src: SEO report §3.1
       `_overlay/robots.txt` has three `Disallow: /lost…` lines. The report wants

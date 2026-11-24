@@ -89,3 +89,9 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
       the tags are advertised again. Doing it before that would re-advertise thin
       pages, so it is held until wp-theme pings mkstatic that tag canonicals are
       live. Files: `wp_to_static/mirror.py` (SITEMAP_PROVIDERS), test.
+      **2026-11-24 update:** wp-theme first fixed the wrong theme — the active theme
+      on live+dev WP is `louie-theme` (repo `wp-louie.se-2025`), confirmed by the
+      static output (126 files reference louie-theme, 0 reference eisai-child, which
+      is only the flattened-font source path, cf. B-002). The canonical+H1 must land
+      in `louie-theme` and deploy to the dev WP at https://louie-se.i.louie.se before
+      this is unblocked. Decision unchanged; still held on wp-theme's ping.

@@ -67,15 +67,18 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-009 · Drop the post_tag sitemap from the build**~~ — CLOSED 2026-11-24 (Sprint 02 T-02): `taxonomies-post_tag` removed from `mirror.SITEMAP_PROVIDERS`; the 35 thin tag archives are no longer advertised, the pages still ship for visitors.
 
-- [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: blocked on the hosting session's nginx 404 change · src: SEO report §3.1
-      `_overlay/robots.txt` has three `Disallow: /lost…` lines. The report wants
-      them gone so Google can read that /lost/ is an error page, BUT only *after*
-      nginx stops 301-ing dead URLs to /lost/ and the lost page carries a `noindex`
-      meta. Landing this first would make the error page indexable. One-line overlay
-      edit, held until the **hosting** session confirms the `error_page 404` change
-      is live on static5 (handed to it 2026-11-24) and the **wp-theme** session has
-      added noindex to the lost page. hosting pings mkstatic when it lands, then
-      close this. Files: `_overlay/robots.txt`.
+- [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: now blocked only on the wp-theme noindex on /lost/ · src: SEO report §3.1
+      `_overlay/robots.txt` has three `Disallow: /lost…` lines. Two preconditions:
+      (a) nginx returns a real 404 for dead URLs, (b) the `/lost/` page carries a
+      `noindex` meta. **(a) is DONE**: the **hosting** session confirmed 2026-11-24
+      that static5 now serves `error_page 404 /lost/index.html` (missing URLs 404,
+      `/lost/` returns 200) and `absolute_redirect off`. **(b) is still open** with
+      the **wp-theme** session. Order matters: `/lost/` returns 200, so removing the
+      Disallow before the noindex exists lets Google crawl and index a soft-404. The
+      noindex must go on first, *then* robots unblocks so Google reads it and drops
+      the page. So still held — on wp-theme now, not hosting. When wp-theme signals
+      the lost page has noindex, land this one-line edit and close. Files:
+      `_overlay/robots.txt`.
 
 - [ ] **B-011 · Restore the post_tag sitemap once tag pages are real** · 1h · prio P2 · decision: blocked on the wp-theme session · src: interview 2026-11-24, reverses B-009
       The operator chose to **promote all 35 tag pages** to real pages, not to leave

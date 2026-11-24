@@ -1,6 +1,6 @@
 # Backlog
 
-Next ID: **B-011**
+Next ID: **B-012**
 
 Everything not in the active sprint, priority order. IDs are issued once and
 never reused. Closed rows are struck in place with proof.
@@ -26,6 +26,23 @@ Not ticketed (root cause is upstream WP, not the build): the 2 orphan pages
 missing from the sitemap and stale `lastmod` dates. The sitemaps are fetched
 verbatim from WordPress, so those are WP export/content fixes, not build fixes.
 
+## Interview 2026-11-24 — operator decisions
+
+Ruled on the open items after Sprint 02:
+
+- **Branch `fix-build-host-and-docs`: leave local.** Not pushed, no PR. Keep
+  working on it.
+- **Tag pages: promote all 35 to real pages**, not leave them deindexed. Build
+  will restore the full `post_tag` sitemap once wp-theme adds canonical+H1 (B-011,
+  held). Handed to wp-theme.
+- **2 orphan pages + stale `lastmod`: handed to the wp-theme session** (WP-side
+  fixes, 2026-11-24).
+- **nginx 404 / https redirects / HSTS: owned by the hosting session**, not this
+  one. Handed to hosting; B-010 (robots.txt) stays held until hosting confirms the
+  `error_page 404` is live on static5.
+- **Test-count drift: drop the exact number.** README and project CLAUDE.md now
+  say "the test suite" instead of a count; nothing to drift, so no B-005 recurrence.
+
 ## Last grooming 2026-11-23
 
 Seeded from the README-vs-code review. All five review fixes verified open
@@ -50,11 +67,22 @@ from `TODO.md`, left as P3 because it needs a browser and a human.
 
 - ~~**B-009 · Drop the post_tag sitemap from the build**~~ — CLOSED 2026-11-24 (Sprint 02 T-02): `taxonomies-post_tag` removed from `mirror.SITEMAP_PROVIDERS`; the 35 thin tag archives are no longer advertised, the pages still ship for visitors.
 
-- [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: blocked on the nginx 404 change · src: SEO report §3.1
+- [ ] **B-010 · Remove the `/lost` disallows from robots.txt** · 0.5h · prio P2 · decision: blocked on the hosting session's nginx 404 change · src: SEO report §3.1
       `_overlay/robots.txt` has three `Disallow: /lost…` lines. The report wants
       them gone so Google can read that /lost/ is an error page, BUT only *after*
       nginx stops 301-ing dead URLs to /lost/ and the lost page carries a `noindex`
       meta. Landing this first would make the error page indexable. One-line overlay
-      edit, held until the server session confirms the `error_page 404` change is
-      live on static5 and the theme/content session has added noindex to the lost
-      page. Files: `_overlay/robots.txt`.
+      edit, held until the **hosting** session confirms the `error_page 404` change
+      is live on static5 (handed to it 2026-11-24) and the **wp-theme** session has
+      added noindex to the lost page. hosting pings mkstatic when it lands, then
+      close this. Files: `_overlay/robots.txt`.
+
+- [ ] **B-011 · Restore the post_tag sitemap once tag pages are real** · 1h · prio P2 · decision: blocked on the wp-theme session · src: interview 2026-11-24, reverses B-009
+      The operator chose to **promote all 35 tag pages** to real pages, not to leave
+      them deindexed. B-009 dropped `taxonomies-post_tag` from `SITEMAP_PROVIDERS`
+      because the tag archives were thin (no self-canonical, no H1). Once the
+      **wp-theme** session gives tag archives a self-referencing canonical and an H1
+      (one template change covers all 35), the build should re-add the provider so
+      the tags are advertised again. Doing it before that would re-advertise thin
+      pages, so it is held until wp-theme pings mkstatic that tag canonicals are
+      live. Files: `wp_to_static/mirror.py` (SITEMAP_PROVIDERS), test.

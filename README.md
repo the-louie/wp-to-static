@@ -231,7 +231,7 @@ replacement for one. Deploying them is a manual step, documented in
 ## Tests
 
 ```sh
-.venv/bin/python -m pytest        # 166 tests, all offline
+.venv/bin/python -m pytest        # the test suite, all offline
 ```
 
 Everything runs against fixtures; no WordPress required, and no shell or Node

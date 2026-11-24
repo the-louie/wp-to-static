@@ -28,7 +28,7 @@ post guids and content URLs baked at creation time still point at them.
 ./mkstatic.sh                 # build + upload (first run builds .venv via uv)
 ./mkstatic.sh --skip upload   # build only, into ./output
 ./mkstatic.sh --dry-run       # build, preview the rsync file list
-.venv/bin/python -m pytest    # 160 tests, all offline against fixtures
+.venv/bin/python -m pytest    # the test suite, all offline against fixtures
 ```
 
 Needs `wget`, `curl`, `rsync`, and `uv` on PATH. `--upload` is opt-in; the bare
